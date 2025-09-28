@@ -1,0 +1,22 @@
+{
+    "name": "inventory/app",
+    "description": "ระบบคลังยา MVP แบบกำหนดเอง",
+    "type": "project",
+    "require": {
+        "php": ">=8.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        },
+        "files": [
+            "bootstrap/helpers.php"
+        ]
+    },
+    "scripts": {
+        "post-install-cmd": [
+            "php artisan storage:link",
+            "php artisan templates:generate"
+        ]
+    }
+}

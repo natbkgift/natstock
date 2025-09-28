@@ -1,0 +1,9 @@
+/vendor/
+/storage/logs/*.log
+/storage/imports/*.tmp
+/database/database.sqlite
+/tests/database.sqlite
+.env
+/public/storage
+/public/templates/product_template.xlsx
+/workspace/
