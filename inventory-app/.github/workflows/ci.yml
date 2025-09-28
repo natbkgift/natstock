@@ -24,20 +24,6 @@ jobs:
         run: composer install --prefer-dist --no-progress --no-interaction
         working-directory: inventory-app
 
-      - name: Prepare environment
-        run: |
-          cp .env.example .env
-          php artisan key:generate
-        working-directory: inventory-app
-
-      - name: Run migrations
-        run: php artisan migrate --force
-        working-directory: inventory-app
-
-      - name: Run Pint (test mode)
-        run: ./vendor/bin/pint --test
-        working-directory: inventory-app
-
-      - name: Run Pest tests
-        run: ./vendor/bin/pest
+      - name: Run test suite
+        run: composer test
         working-directory: inventory-app
