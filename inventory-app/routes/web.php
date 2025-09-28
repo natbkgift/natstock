@@ -23,7 +23,12 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::post('/import/preview', [ImportController::class, 'preview'])->name('import.preview');
     Route::post('/import/commit', [ImportController::class, 'commit'])->name('import.commit');
     Route::get('/import/error/{token}', [ImportController::class, 'downloadErrors'])->name('import.errors.download');
-    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::prefix('reports')->name('reports.')->group(function () {
+        Route::get('/', [ReportController::class, 'index'])->name('index');
+        Route::get('/expiring', [ReportController::class, 'expiring'])->name('expiring');
+        Route::get('/low-stock', [ReportController::class, 'lowStock'])->name('low-stock');
+        Route::get('/valuation', [ReportController::class, 'valuation'])->name('valuation');
+    });
 });
 
 require __DIR__.'/auth.php';
