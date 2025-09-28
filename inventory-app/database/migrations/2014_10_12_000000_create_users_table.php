@@ -10,13 +10,19 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->enum('role', ['admin', 'staff', 'viewer'])->default('viewer');
+            $table->string('name')->comment('ชื่อผู้ใช้งาน');
+            $table->string('email')->unique()->comment('อีเมล');
+            $table->timestamp('email_verified_at')->nullable()->comment('เวลายืนยันอีเมล');
+            $table->string('password')->comment('รหัสผ่าน');
+            $table->enum('role', ['admin', 'staff', 'viewer'])->default('viewer')->comment('บทบาทผู้ใช้งาน');
             $table->rememberToken();
             $table->timestamps();
+
+            $table->index('role', 'users_role_index');
+
+            $table->charset = 'utf8mb4';
+            $table->collation = 'utf8mb4_unicode_ci';
+            $table->comment('ตารางผู้ใช้งานในระบบคลังสินค้า');
         });
     }
 

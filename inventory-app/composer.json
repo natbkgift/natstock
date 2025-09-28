@@ -10,9 +10,13 @@
     "require-dev": {},
     "autoload": {
         "psr-4": {
-            "App\\": "app/"
+            "App\\": "app/",
+            "Carbon\\": "stubs/Carbon/",
+            "Illuminate\\": "stubs/Illuminate/"
         },
-        "files": []
+        "files": [
+            "stubs/helpers.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
