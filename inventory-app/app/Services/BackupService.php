@@ -133,7 +133,7 @@ class BackupService
         $pathsToRemove = array_slice($backups, self::RETENTION);
         foreach ($pathsToRemove as $backup) {
             $filePath = storage_path(self::BACKUP_DIR.'/'.$backup['name']);
-            if (is_file($filePath) && ! unlink($filePath)) {
+            if (File::exists($filePath) && ! File::delete($filePath)) {
                 Log::channel('daily')->warning('ลบไฟล์สำรองเก่าไม่สำเร็จ', ['path' => $filePath]);
             }
         }

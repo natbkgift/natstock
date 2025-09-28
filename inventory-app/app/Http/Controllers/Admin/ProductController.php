@@ -148,7 +148,7 @@ class ProductController extends Controller
             'ลบสินค้าออกจากระบบ',
             $details,
             $product,
-            $request->user(),
+            request()->user(),
         );
 
         return redirect()

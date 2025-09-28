@@ -9,7 +9,6 @@ class MaskSensitiveData
     public function __invoke(Logger $logger): void
     {
         $logger->pushProcessor(function (array $record) {
-            $record['message'] = $this->maskString((string) $record['message']);
             $record['context'] = $this->maskContext($record['context'] ?? []);
             $record['extra'] = $this->maskContext($record['extra'] ?? []);
 
@@ -35,14 +34,7 @@ class MaskSensitiveData
 
     private function maskString(string $value): string
     {
-        $keywords = ['token', 'password', 'secret', 'key'];
-        foreach ($keywords as $keyword) {
-            if (stripos($value, $keyword) !== false) {
-                return substr($value, 0, 3).'***'.substr($value, -2);
-            }
-        }
-
-        return $value;
+        return '***MASKED***';
     }
 
     private function isSensitiveKey(string $key): bool

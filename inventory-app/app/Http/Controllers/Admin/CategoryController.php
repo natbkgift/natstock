@@ -129,7 +129,7 @@ class CategoryController extends Controller
             'ลบหมวดหมู่',
             ['name' => $name],
             $category,
-            $request->user(),
+            request()->user(),
         );
 
         return redirect()

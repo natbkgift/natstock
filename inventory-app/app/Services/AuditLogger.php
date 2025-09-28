@@ -5,8 +5,9 @@ namespace App\Services;
 use App\Models\Activity;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Arr;
+use Illuminate\Http\Request;
 
 class AuditLogger
 {
@@ -21,22 +22,24 @@ class AuditLogger
             'actor_id' => $actor?->getKey(),
             'subject_type' => $subject?->getMorphClass(),
             'subject_id' => $subject?->getKey(),
-            'properties' => $this->prepareProperties($properties, $request?->all() ?? []),
+            'properties' => $this->prepareProperties($properties, $request),
             'ip_address' => $request?->ip(),
             'happened_at' => now(),
         ]);
     }
 
-    private function prepareProperties(array $properties, array $requestData): array
+    private function prepareProperties(array $properties, ?Request $request): array
     {
-        $sanitizedRequest = Arr::except($requestData, ['password', 'password_confirmation', 'token']);
+        if ($request) {
+            $sanitizedRequest = Arr::except($request->all(), ['password', 'password_confirmation', 'token']);
 
-        if ($sanitizedRequest !== []) {
-            $properties['request'] = $sanitizedRequest;
-        }
+            if ($sanitizedRequest !== []) {
+                $properties['request'] = $sanitizedRequest;
+            }
 
-        if (isset($_SERVER['HTTP_USER_AGENT'])) {
-            $properties['user_agent'] = substr((string) $_SERVER['HTTP_USER_AGENT'], 0, 255);
+            if ($userAgent = $request->userAgent()) {
+                $properties['user_agent'] = substr($userAgent, 0, 255);
+            }
         }
 
         return $properties;
