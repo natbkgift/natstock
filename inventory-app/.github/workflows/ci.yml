@@ -1,29 +1,60 @@
-name: CI
+name: Inventory CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
+concurrency:
+  group: inventory-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  tests:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+        working-directory: inventory-app
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: ${{ runner.os }}-composer-${{ hashFiles('inventory-app/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           coverage: none
+          extensions: sqlite3, zip
+          tools: composer
+
+      - name: Validate composer.json
+        run: composer validate --no-interaction
+
       - name: Install Composer dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Prepare application environment
         run: |
-          cd inventory-app
-          composer install --no-interaction --no-progress
-      - name: Prepare database
-        run: |
-          cd inventory-app
+          if [ ! -f .env ]; then
+            cp .env.example .env
+          fi
           touch database/database.sqlite
-          php artisan migrate
-      - name: Run tests
-        run: |
-          cd inventory-app
-          php artisan test
+          php artisan key:generate --force
+
+      - name: Run database migrations
+        run: php artisan migrate --force
+
+      - name: Execute test suite
+        run: php artisan test
