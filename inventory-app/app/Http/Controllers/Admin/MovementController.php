@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\StockMovement;
+use App\Services\AuditLogger;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +17,10 @@ use Illuminate\View\View;
 
 class MovementController extends Controller
 {
+    public function __construct(private readonly AuditLogger $auditLogger)
+    {
+    }
+
     public function index(Request $request): View
     {
         $this->authorize('viewAny', StockMovement::class);
@@ -107,11 +112,11 @@ class MovementController extends Controller
 
         $validated = $this->validateInboundOutbound($request);
 
-        DB::transaction(function () use ($validated, $request) {
+        $result = DB::transaction(function () use ($validated, $request) {
             $product = Product::query()->lockForUpdate()->findOrFail($validated['product_id']);
+            $beforeQty = $product->qty;
             $product->increment('qty', $validated['qty']);
-
-            StockMovement::create([
+            $movement = StockMovement::create([
                 'product_id' => $product->id,
                 'type' => 'in',
                 'qty' => $validated['qty'],
@@ -119,7 +124,28 @@ class MovementController extends Controller
                 'actor_id' => $request->user()->id,
                 'happened_at' => now(),
             ]);
+
+            return [
+                'movement' => $movement,
+                'product' => $product->fresh(),
+                'before' => $beforeQty,
+                'after' => $beforeQty + $validated['qty'],
+            ];
         });
+
+        $this->auditLogger->log(
+            'stock.in',
+            'รับสินค้าเข้าคลัง',
+            [
+                'product_sku' => $result['product']?->sku,
+                'product_name' => $result['product']?->name,
+                'qty' => $validated['qty'],
+                'before_qty' => $result['before'],
+                'after_qty' => $result['after'],
+            ],
+            $result['movement'],
+            $request->user(),
+        );
 
         return redirect()
             ->route('admin.movements.index')
@@ -132,7 +158,7 @@ class MovementController extends Controller
 
         $validated = $this->validateInboundOutbound($request);
 
-        DB::transaction(function () use ($validated, $request) {
+        $result = DB::transaction(function () use ($validated, $request) {
             $product = Product::query()->lockForUpdate()->findOrFail($validated['product_id']);
 
             if ($validated['qty'] > $product->qty) {
@@ -141,9 +167,10 @@ class MovementController extends Controller
                 ])->errorBag('default')->redirectTo(route('admin.movements.index'));
             }
 
+            $beforeQty = $product->qty;
             $product->decrement('qty', $validated['qty']);
 
-            StockMovement::create([
+            $movement = StockMovement::create([
                 'product_id' => $product->id,
                 'type' => 'out',
                 'qty' => $validated['qty'],
@@ -151,7 +178,28 @@ class MovementController extends Controller
                 'actor_id' => $request->user()->id,
                 'happened_at' => now(),
             ]);
+
+            return [
+                'movement' => $movement,
+                'product' => $product->fresh(),
+                'before' => $beforeQty,
+                'after' => $beforeQty - $validated['qty'],
+            ];
         });
+
+        $this->auditLogger->log(
+            'stock.out',
+            'เบิกสินค้าออกจากคลัง',
+            [
+                'product_sku' => $result['product']?->sku,
+                'product_name' => $result['product']?->name,
+                'qty' => $validated['qty'],
+                'before_qty' => $result['before'],
+                'after_qty' => $result['after'],
+            ],
+            $result['movement'],
+            $request->user(),
+        );
 
         return redirect()
             ->route('admin.movements.index')
@@ -164,7 +212,7 @@ class MovementController extends Controller
 
         $validated = $this->validateAdjust($request);
 
-        $delta = DB::transaction(function () use ($validated, $request) {
+        $result = DB::transaction(function () use ($validated, $request) {
             $product = Product::query()->lockForUpdate()->findOrFail($validated['product_id']);
 
             $currentQty = $product->qty;
@@ -177,7 +225,7 @@ class MovementController extends Controller
             $deltaText = 'Δ' . ($delta > 0 ? '+' : '') . $delta;
             $noteToStore = trim($noteDetails . ' ' . $deltaText);
 
-            StockMovement::create([
+            $movement = StockMovement::create([
                 'product_id' => $product->id,
                 'type' => 'adjust',
                 'qty' => abs($delta),
@@ -186,10 +234,31 @@ class MovementController extends Controller
                 'happened_at' => now(),
             ]);
 
-            return $delta;
+            return [
+                'movement' => $movement,
+                'product' => $product->fresh(),
+                'delta' => $delta,
+                'before' => $currentQty,
+                'after' => $targetQty,
+            ];
         });
 
+        $delta = $result['delta'];
         $deltaText = $delta > 0 ? "+{$delta}" : (string) $delta;
+
+        $this->auditLogger->log(
+            'stock.adjust',
+            'ปรับปรุงยอดสต็อก',
+            [
+                'product_sku' => $result['product']?->sku,
+                'product_name' => $result['product']?->name,
+                'delta' => $delta,
+                'before_qty' => $result['before'],
+                'after_qty' => $result['after'],
+            ],
+            $result['movement'],
+            $request->user(),
+        );
 
         return redirect()
             ->route('admin.movements.index')

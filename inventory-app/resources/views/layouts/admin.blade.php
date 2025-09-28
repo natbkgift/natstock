@@ -28,6 +28,15 @@
     <nav class="main-header navbar navbar-expand navbar-white navbar-light">
         <ul class="navbar-nav ml-auto">
             @auth
+                @php($notificationCount = auth()->user()->unreadNotifications()->count())
+                <li class="nav-item mr-2">
+                    <a href="{{ route('admin.notifications.index') }}" class="nav-link position-relative">
+                        <i class="far fa-bell"></i>
+                        @if($notificationCount > 0)
+                            <span class="badge badge-danger navbar-badge">{{ $notificationCount }}</span>
+                        @endif
+                    </a>
+                </li>
                 <li class="nav-item">
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
@@ -50,6 +59,14 @@
                             <p>แดชบอร์ด</p>
                         </a>
                     </li>
+                    @can('access-staff')
+                        <li class="nav-item">
+                            <a href="{{ route('admin.notifications.index') }}" class="nav-link {{ request()->routeIs('admin.notifications.*') ? 'active' : '' }}">
+                                <i class="nav-icon far fa-bell"></i>
+                                <p>การแจ้งเตือน</p>
+                            </a>
+                        </li>
+                    @endcan
                     <li class="nav-item">
                         <a href="{{ route('admin.products.index') }}" class="nav-link {{ request()->routeIs('admin.products.*') ? 'active' : '' }}">
                             <i class="nav-icon fas fa-box"></i>
@@ -74,6 +91,26 @@
                             <p>นำเข้าไฟล์</p>
                         </a>
                     </li>
+                    @can('access-admin')
+                        <li class="nav-item">
+                            <a href="{{ route('admin.settings.index') }}" class="nav-link {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-cog"></i>
+                                <p>ตั้งค่าระบบ</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('admin.backup.index') }}" class="nav-link {{ request()->routeIs('admin.backup.*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-database"></i>
+                                <p>สำรองข้อมูล</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('admin.audit.index') }}" class="nav-link {{ request()->routeIs('admin.audit.*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-clipboard-list"></i>
+                                <p>บันทึกกิจกรรม</p>
+                            </a>
+                        </li>
+                    @endcan
                     <li class="nav-item">
                         <a href="{{ route('admin.reports.index') }}" class="nav-link {{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">
                             <i class="nav-icon fas fa-chart-pie"></i>
