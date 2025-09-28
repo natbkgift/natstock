@@ -12,9 +12,13 @@ Route::view('/', 'welcome')->name('welcome');
 
 Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/products', [ProductController::class, 'index'])->name('products.index');
-    Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
+    Route::resource('categories', CategoryController::class)->except(['show']);
+    Route::resource('products', ProductController::class)->except(['show']);
     Route::get('/movements', [MovementController::class, 'index'])->name('movements.index');
+    Route::get('/movements/products/search', [MovementController::class, 'searchProducts'])->name('movements.products.search');
+    Route::post('/movements/in', [MovementController::class, 'storeIn'])->name('movements.store.in');
+    Route::post('/movements/out', [MovementController::class, 'storeOut'])->name('movements.store.out');
+    Route::post('/movements/adjust', [MovementController::class, 'storeAdjust'])->name('movements.store.adjust');
     Route::get('/import', [ImportController::class, 'index'])->name('import.index');
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
 });

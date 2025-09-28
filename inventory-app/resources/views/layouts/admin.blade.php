@@ -9,7 +9,19 @@
     <style>
         body { font-family: 'Sarabun', 'Prompt', sans-serif; }
         .content-header h1 { font-size: 1.6rem; }
+        .select2-container--bootstrap4 .select2-selection--single {
+            height: 38px;
+            padding: 0.375rem 0.75rem;
+        }
+        .select2-container--bootstrap4 .select2-selection--single .select2-selection__rendered {
+            line-height: 1.6;
+        }
+        .select2-container--bootstrap4 .select2-selection--single .select2-selection__arrow {
+            height: 36px;
+        }
+        .badge-warning { color: #856404; }
     </style>
+    @stack('styles')
 </head>
 <body class="hold-transition sidebar-mini">
 <div class="wrapper">
@@ -89,6 +101,15 @@
                 @if(session('status'))
                     <div class="alert alert-success" role="alert">{{ session('status') }}</div>
                 @endif
+                @if(session('warning'))
+                    <div class="alert alert-warning" role="alert">{{ session('warning') }}</div>
+                @endif
+                @if(session('error'))
+                    <div class="alert alert-danger" role="alert">{{ session('error') }}</div>
+                @endif
+                @if(session('info'))
+                    <div class="alert alert-info" role="alert">{{ session('info') }}</div>
+                @endif
                 @if($errors->any())
                     <div class="alert alert-danger" role="alert">
                         <strong>พบข้อผิดพลาด:</strong>
@@ -109,11 +130,12 @@
     </div>
 
     <footer class="main-footer text-sm text-center">
-        <strong>ระบบคลังสินค้า (Phase 1)</strong>
+        <strong>ระบบคลังสินค้า (Phase 3)</strong>
     </footer>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+@stack('scripts')
 </body>
 </html>

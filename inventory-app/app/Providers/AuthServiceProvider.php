@@ -2,13 +2,23 @@
 
 namespace App\Providers;
 
+use App\Models\Category;
+use App\Models\Product;
+use App\Models\StockMovement;
 use App\Models\User;
+use App\Policies\CategoryPolicy;
+use App\Policies\ProductPolicy;
+use App\Policies\StockMovementPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 
 class AuthServiceProvider extends ServiceProvider
 {
-    protected $policies = [];
+    protected $policies = [
+        Category::class => CategoryPolicy::class,
+        Product::class => ProductPolicy::class,
+        StockMovement::class => StockMovementPolicy::class,
+    ];
 
     public function boot(): void
     {
