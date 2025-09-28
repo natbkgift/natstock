@@ -4,21 +4,26 @@ namespace Database\Factories;
 
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Str;
 
 class UserFactory extends Factory
 {
-    protected $model = User::class;
+    protected string $model = User::class;
+
+    private static int $sequence = 1;
 
     public function definition(): array
     {
+        $id = self::$sequence;
+        self::$sequence++;
+
         return [
-            'name' => $this->faker->name(),
-            'email' => $this->faker->unique()->safeEmail(),
-            'email_verified_at' => now(),
+            'id' => $id,
+            'name' => 'เจ้าหน้าที่ทดสอบ ' . $id,
+            'email' => sprintf('tester%02d@example.com', $id),
+            'email_verified_at' => date('Y-m-d H:i:s'),
             'password' => bcrypt('password'),
             'role' => 'viewer',
-            'remember_token' => Str::random(10),
+            'remember_token' => 'token' . $id,
         ];
     }
 }

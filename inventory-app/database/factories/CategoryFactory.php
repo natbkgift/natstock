@@ -4,31 +4,33 @@ namespace Database\Factories;
 
 use App\Models\Category;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Str;
 
 class CategoryFactory extends Factory
 {
-    protected $model = Category::class;
+    protected string $model = Category::class;
+
+    private static int $index = 0;
 
     public function definition(): array
     {
-        $name = Str::title($this->faker->unique()->randomElement([
-            'ยา',
-            'เวชภัณฑ์',
-            'วิตามิน',
-            'ผลิตภัณฑ์ทำความสะอาด',
-            'อุปกรณ์การแพทย์',
-        ]));
+        $options = [
+            ['ชื่อ' => 'ยา', 'หมายเหตุ' => 'หมวดสินค้าสามัญประจำบ้าน'],
+            ['ชื่อ' => 'วิตามิน', 'หมายเหตุ' => 'หมวดอาหารเสริมเพื่อสุขภาพ'],
+            ['ชื่อ' => 'เวชภัณฑ์', 'หมายเหตุ' => 'อุปกรณ์การแพทย์และของใช้ในคลัง'],
+            ['ชื่อ' => 'อุปกรณ์ปฐมพยาบาล', 'หมายเหตุ' => 'สำหรับจัดชุดปฐมพยาบาล'],
+            ['ชื่อ' => 'ผลิตภัณฑ์ทำความสะอาด', 'หมายเหตุ' => 'สินค้าเพื่อสุขอนามัยและฆ่าเชื้อ'],
+        ];
+
+        $index = self::$index % count($options);
+        $item = $options[$index];
+        $id = self::$index + 1;
+        self::$index++;
 
         return [
-            'name' => $name,
-            'note' => $this->faker->optional()->randomElement([
-                'ใช้สำหรับสินค้าขายดีในคลัง',
-                'หมวดหมู่สินค้าประจำไตรมาส',
-                'สินค้าที่ต้องควบคุมอุณหภูมิ',
-                'รายการใหม่ที่เพิ่งเพิ่มเข้ามา',
-            ]),
-            'is_active' => $this->faker->boolean(90),
+            'id' => $id,
+            'name' => $item['ชื่อ'],
+            'note' => $item['หมายเหตุ'],
+            'is_active' => true,
         ];
     }
 }
