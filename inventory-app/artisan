@@ -1,34 +1,21 @@
 #!/usr/bin/env php
 <?php
-require __DIR__.'/bootstrap/autoload.php';
 
-$command = $argv[1] ?? '';
+use Illuminate\Contracts\Console\Kernel;
 
-switch ($command) {
-    case 'serve':
-        $host = $argv[2] ?? '127.0.0.1:8000';
-        $parts = explode(':', $host);
-        $port = $parts[1] ?? '8000';
-        passthru(sprintf('php -S %s -t public', $host));
-        break;
-    case 'migrate':
-        require __DIR__.'/scripts/migrate.php';
-        break;
-    case 'db:seed':
-        require __DIR__.'/database/seeders/DatabaseSeeder.php';
-        break;
-    case 'storage:link':
-        if (!is_dir(__DIR__.'/public/storage')) {
-            @symlink(__DIR__.'/storage', __DIR__.'/public/storage');
-        }
-        break;
-    case 'templates:generate':
-        require __DIR__.'/scripts/generate_templates.php';
-        break;
-    case 'test':
-        require __DIR__.'/tests/run.php';
-        break;
-    default:
-        echo "คำสั่งที่รองรับ: serve, migrate, db:seed, test\n";
-        exit(1);
-}
+define('LARAVEL_START', microtime(true));
+
+require __DIR__.'/vendor/autoload.php';
+
+$app = require __DIR__.'/bootstrap/app.php';
+
+$kernel = $app->make(Kernel::class);
+
+$status = $kernel->handle(
+    $input = new Symfony\Component\Console\Input\ArgvInput(),
+    new Symfony\Component\Console\Output\ConsoleOutput()
+);
+
+$kernel->terminate($input, $status);
+
+exit($status);
