@@ -177,8 +177,8 @@ class ImportService
         }
 
         if ($validRows !== []) {
-            DB::transaction(function () use (&$summary, &$errorRows, $validRows, $duplicateMode, $autoCreateCategory, $actor): void {
-                foreach (array_chunk($validRows, self::CHUNK_SIZE) as $chunk) {
+            foreach (array_chunk($validRows, self::CHUNK_SIZE) as $chunk) {
+                DB::transaction(function () use (&$summary, &$errorRows, $chunk, $duplicateMode, $autoCreateCategory, $actor): void {
                     foreach ($chunk as $rowData) {
                         try {
                             $result = $this->upsertOrSkip($rowData['normalized'], $duplicateMode, $autoCreateCategory, $actor);
@@ -188,8 +188,8 @@ class ImportService
                             $errorRows[] = $this->buildErrorRow($rowData['row_number'], [$exception->getMessage()], $rowData['raw']);
                         }
                     }
-                }
-            });
+                });
+            }
         }
 
         $errorToken = $this->exportErrors($errorRows);
@@ -802,7 +802,7 @@ class ImportService
 
     private function ensureStorageDirectory(): void
     {
-        if (!is_dir($this->storagePath) && !mkdir($this->storagePath, 0755, true) && !is_dir($this->storagePath)) {
+        if (!is_dir($this->storagePath) && !@mkdir($this->storagePath, 0755, true) && !is_dir($this->storagePath)) {
             throw new RuntimeException('ไม่สามารถสร้างไดเรกทอรีจัดเก็บไฟล์ชั่วคราวได้');
         }
     }
