@@ -6,13 +6,19 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ProductRequest;
 use App\Models\Category;
 use App\Models\Product;
+use App\Services\AuditLogger;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\View\View;
 
 class ProductController extends Controller
 {
+    public function __construct(private readonly AuditLogger $auditLogger)
+    {
+    }
+
     public function index(Request $request): View
     {
         $this->authorize('viewAny', Product::class);
@@ -71,7 +77,19 @@ class ProductController extends Controller
 
         $data = $this->formatProductData($request->validated());
 
-        Product::create($data);
+        $product = Product::create($data);
+
+        $this->auditLogger->log(
+            'product.created',
+            'สร้างสินค้าใหม่',
+            [
+                'sku' => $product->sku,
+                'name' => $product->name,
+                'qty' => $product->qty,
+            ],
+            $product,
+            $request->user(),
+        );
 
         return redirect()
             ->route('admin.products.index')
@@ -92,8 +110,20 @@ class ProductController extends Controller
         $this->authorize('update', $product);
 
         $data = $this->formatProductData($request->validated());
+        $before = Arr::only($product->toArray(), ['sku', 'name', 'qty', 'reorder_point', 'is_active']);
 
         $product->update($data);
+
+        $this->auditLogger->log(
+            'product.updated',
+            'แก้ไขข้อมูลสินค้า',
+            [
+                'before' => $before,
+                'after' => Arr::only($product->fresh()->toArray(), ['sku', 'name', 'qty', 'reorder_point', 'is_active']),
+            ],
+            $product,
+            $request->user(),
+        );
 
         return redirect()
             ->route('admin.products.index')
@@ -110,7 +140,16 @@ class ProductController extends Controller
                 ->with('warning', 'ไม่สามารถลบสินค้าที่มีประวัติการเคลื่อนไหวได้');
         }
 
+        $details = ['sku' => $product->sku, 'name' => $product->name];
         $product->delete();
+
+        $this->auditLogger->log(
+            'product.deleted',
+            'ลบสินค้าออกจากระบบ',
+            $details,
+            $product,
+            request()->user(),
+        );
 
         return redirect()
             ->route('admin.products.index')

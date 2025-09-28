@@ -5,13 +5,19 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CategoryRequest;
 use App\Models\Category;
+use App\Services\AuditLogger;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\View\View;
 
 class CategoryController extends Controller
 {
+    public function __construct(private readonly AuditLogger $auditLogger)
+    {
+    }
+
     public function index(Request $request): View
     {
         $this->authorize('viewAny', Category::class);
@@ -54,7 +60,18 @@ class CategoryController extends Controller
         $data = $request->validated();
         $data['is_active'] = (bool) ($data['is_active'] ?? false);
 
-        Category::create($data);
+        $category = Category::create($data);
+
+        $this->auditLogger->log(
+            'category.created',
+            'สร้างหมวดหมู่ใหม่',
+            [
+                'name' => $category->name,
+                'is_active' => $category->is_active,
+            ],
+            $category,
+            $request->user(),
+        );
 
         return redirect()
             ->route('admin.categories.index')
@@ -75,7 +92,19 @@ class CategoryController extends Controller
         $data = $request->validated();
         $data['is_active'] = (bool) ($data['is_active'] ?? false);
 
+        $before = Arr::only($category->getOriginal(), ['name', 'is_active']);
         $category->update($data);
+
+        $this->auditLogger->log(
+            'category.updated',
+            'แก้ไขหมวดหมู่',
+            [
+                'before' => $before,
+                'after' => Arr::only($category->fresh()->toArray(), ['name', 'is_active']),
+            ],
+            $category,
+            $request->user(),
+        );
 
         return redirect()
             ->route('admin.categories.index')
@@ -92,7 +121,16 @@ class CategoryController extends Controller
                 ->with('warning', 'ไม่สามารถลบหมวดหมู่ที่มีสินค้าอยู่ได้');
         }
 
+        $name = $category->name;
         $category->delete();
+
+        $this->auditLogger->log(
+            'category.deleted',
+            'ลบหมวดหมู่',
+            ['name' => $name],
+            $category,
+            request()->user(),
+        );
 
         return redirect()
             ->route('admin.categories.index')
