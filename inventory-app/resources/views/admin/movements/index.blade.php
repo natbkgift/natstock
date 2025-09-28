@@ -56,8 +56,8 @@
                             <label for="product_in">เลือกสินค้า</label>
                             <select name="product_id" id="product_in" class="form-control select2 @if($activeTab === 'in' && $errors->has('product_id')) is-invalid @endif" data-placeholder="ค้นหาสินค้า..." required>
                                 <option value="">-- เลือกสินค้า --</option>
-                                @foreach($products as $product)
-                                    <option value="{{ $product->id }}" {{ (string) $oldValues['in']['product_id'] === (string) $product->id ? 'selected' : '' }}>
+                                @foreach($productOptions as $product)
+                                    <option value="{{ $product->id }}" data-qty="{{ number_format($product->qty) }}" {{ (string) $oldValues['in']['product_id'] === (string) $product->id ? 'selected' : '' }}>
                                         [{{ $product->sku }}] {{ $product->name }} (คงเหลือ {{ number_format($product->qty) }})
                                     </option>
                                 @endforeach
@@ -95,8 +95,8 @@
                             <label for="product_out">เลือกสินค้า</label>
                             <select name="product_id" id="product_out" class="form-control select2 @if($activeTab === 'out' && $errors->has('product_id')) is-invalid @endif" data-placeholder="ค้นหาสินค้า..." required>
                                 <option value="">-- เลือกสินค้า --</option>
-                                @foreach($products as $product)
-                                    <option value="{{ $product->id }}" {{ (string) $oldValues['out']['product_id'] === (string) $product->id ? 'selected' : '' }}>
+                                @foreach($productOptions as $product)
+                                    <option value="{{ $product->id }}" data-qty="{{ number_format($product->qty) }}" {{ (string) $oldValues['out']['product_id'] === (string) $product->id ? 'selected' : '' }}>
                                         [{{ $product->sku }}] {{ $product->name }} (คงเหลือ {{ number_format($product->qty) }})
                                     </option>
                                 @endforeach
@@ -134,8 +134,8 @@
                             <label for="product_adjust">เลือกสินค้า</label>
                             <select name="product_id" id="product_adjust" class="form-control select2 @if($activeTab === 'adjust' && $errors->has('product_id')) is-invalid @endif" data-placeholder="ค้นหาสินค้า..." required>
                                 <option value="">-- เลือกสินค้า --</option>
-                                @foreach($products as $product)
-                                    <option value="{{ $product->id }}" {{ (string) $oldValues['adjust']['product_id'] === (string) $product->id ? 'selected' : '' }}>
+                                @foreach($productOptions as $product)
+                                    <option value="{{ $product->id }}" data-qty="{{ number_format($product->qty) }}" {{ (string) $oldValues['adjust']['product_id'] === (string) $product->id ? 'selected' : '' }}>
                                         [{{ $product->sku }}] {{ $product->name }} (คงเหลือ {{ number_format($product->qty) }})
                                     </option>
                                 @endforeach
@@ -229,19 +229,7 @@
                             <td>
                                 <span class="badge badge-{{ $typeClasses[$movement->type] ?? 'secondary' }}">{{ $typeLabels[$movement->type] ?? '-' }}</span>
                             </td>
-                            <td class="text-right">
-                                @php
-                                    $displayQty = number_format($movement->qty);
-                                    if ($movement->type === 'in') {
-                                        $displayQty = '+' . $displayQty;
-                                    } elseif ($movement->type === 'out') {
-                                        $displayQty = '-' . $displayQty;
-                                    } elseif ($movement->type === 'adjust') {
-                                        $displayQty = 'Δ' . $displayQty;
-                                    }
-                                @endphp
-                                {{ $displayQty }}
-                            </td>
+                            <td class="text-right">{{ $movement->formatted_qty }}</td>
                             <td>{{ $movement->actor->name ?? '-' }}</td>
                             <td>{{ $movement->note ?? '-' }}</td>
                         </tr>
@@ -264,13 +252,53 @@
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
     $(function () {
+        function formatProductOption(product) {
+            if (!product.id) {
+                return product.text;
+            }
+
+            const qty = product.qty ?? $(product.element).data('qty');
+            const container = $('<div>').addClass('d-flex justify-content-between');
+            $('<span>').text(product.text ?? '').appendTo(container);
+            $('<small>').addClass('text-muted').text(`คงเหลือ ${qty ?? '-'}`).appendTo(container);
+
+            return container;
+        }
+
+        function formatProductSelection(product) {
+            if (!product.id) {
+                return product.text;
+            }
+
+            const qty = product.qty ?? $(product.element).data('qty');
+            const container = $('<span>');
+            container.text(`${product.text ?? ''} (คงเหลือ ${qty ?? '-'})`);
+
+            return container;
+        }
+
         $('.select2').select2({
             theme: 'bootstrap4',
             width: '100%',
             language: {
                 noResults: () => 'ไม่พบข้อมูล',
                 searching: () => 'กำลังค้นหา...'
-            }
+            },
+            minimumInputLength: 1,
+            ajax: {
+                url: '{{ route('admin.movements.products.search') }}',
+                dataType: 'json',
+                delay: 300,
+                data: params => ({
+                    q: params.term || ''
+                }),
+                processResults: data => ({
+                    results: data.results
+                }),
+                cache: true
+            },
+            templateResult: formatProductOption,
+            templateSelection: formatProductSelection
         });
     });
 </script>

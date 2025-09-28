@@ -94,19 +94,7 @@
                             <td>
                                 <span class="badge badge-{{ $typeClasses[$movement->type] ?? 'secondary' }}">{{ $typeLabels[$movement->type] ?? '-' }}</span>
                             </td>
-                            <td class="text-right">
-                                @php
-                                    $displayQty = number_format($movement->qty);
-                                    if ($movement->type === 'in') {
-                                        $displayQty = '+' . $displayQty;
-                                    } elseif ($movement->type === 'out') {
-                                        $displayQty = '-' . $displayQty;
-                                    } elseif ($movement->type === 'adjust') {
-                                        $displayQty = 'Δ' . $displayQty;
-                                    }
-                                @endphp
-                                {{ $displayQty }}
-                            </td>
+                            <td class="text-right">{{ $movement->formatted_qty }}</td>
                             <td>{{ $movement->actor->name ?? '-' }}</td>
                         </tr>
                     @empty

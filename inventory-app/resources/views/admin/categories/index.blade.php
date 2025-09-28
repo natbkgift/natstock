@@ -62,7 +62,7 @@
                                         <a href="{{ route('admin.categories.edit', $category) }}" class="btn btn-outline-secondary">แก้ไข</a>
                                     @endcan
                                     @can('delete', $category)
-                                        <form action="{{ route('admin.categories.destroy', $category) }}" method="POST" onsubmit="return confirm('ยืนยันการลบหมวดหมู่นี้หรือไม่?');">
+                                        <form action="{{ route('admin.categories.destroy', $category) }}" method="POST" onsubmit="return confirm('ยืนยันการลบหมวดหมู่นี้หรือไม่?');" style="display: contents;">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="btn btn-outline-danger">ลบ</button>

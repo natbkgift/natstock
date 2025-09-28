@@ -34,11 +34,11 @@ class User extends Authenticatable
 
     public function isStaff(): bool
     {
-        return in_array($this->role, ['admin', 'staff'], true);
+        return $this->isAdmin() || $this->role === 'staff';
     }
 
     public function isViewer(): bool
     {
-        return in_array($this->role, ['admin', 'staff', 'viewer'], true);
+        return $this->isStaff() || $this->role === 'viewer';
     }
 }

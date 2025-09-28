@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\StockMovement;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,20 +44,60 @@ class MovementController extends Controller
         /** @var LengthAwarePaginator $movements */
         $movements = $movementsQuery->paginate(20)->appends($request->query());
 
-        $products = Product::query()
-            ->orderBy('sku')
-            ->with('category')
-            ->get(['id', 'sku', 'name', 'qty', 'reorder_point']);
+        $oldInput = $request->session()->getOldInput();
+        $selectedProductIds = array_values(array_filter([
+            $oldInput['product_id'] ?? null,
+        ]));
+
+        $productOptions = [];
+        if ($selectedProductIds !== []) {
+            $productOptions = Product::query()
+                ->whereIn('id', $selectedProductIds)
+                ->orderBy('sku')
+                ->get(['id', 'sku', 'name', 'qty', 'reorder_point']);
+        }
 
         return view('admin.movements.index', [
             'movements' => $movements,
-            'products' => $products,
+            'productOptions' => $productOptions,
             'filters' => [
                 'search' => $search,
                 'type' => in_array($type, ['in', 'out', 'adjust'], true) ? $type : null,
                 'date_from' => $fromDate?->toDateString(),
                 'date_to' => $toDate?->toDateString(),
             ],
+        ]);
+    }
+
+    public function searchProducts(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', Product::class);
+
+        $term = trim((string) $request->query('q', ''));
+
+        $products = Product::query()
+            ->select(['id', 'sku', 'name', 'qty'])
+            ->where('is_active', true)
+            ->when($term !== '', function ($query) use ($term) {
+                $query->where(function ($subQuery) use ($term) {
+                    $subQuery->where('sku', 'like', "%{$term}%")
+                        ->orWhere('name', 'like', "%{$term}%");
+                });
+            })
+            ->orderBy('sku')
+            ->limit(20)
+            ->get();
+
+        return response()->json([
+            'results' => $products->map(function (Product $product) {
+                $label = sprintf('[%s] %s', $product->sku, $product->name);
+
+                return [
+                    'id' => $product->id,
+                    'text' => $label,
+                    'qty' => number_format($product->qty),
+                ];
+            })->values(),
         ]);
     }
 
@@ -140,7 +181,7 @@ class MovementController extends Controller
                 'product_id' => $product->id,
                 'type' => 'adjust',
                 'qty' => abs($delta),
-                'note' => $noteToStore !== '' ? $noteToStore : $deltaText,
+                'note' => $noteToStore,
                 'actor_id' => $request->user()->id,
                 'happened_at' => now(),
             ]);
