@@ -1,45 +1,37 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
-
-class User extends Authenticatable
+final class User
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    private static int $autoIncrement = 1;
 
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'role',
-    ];
+    public int $id;
+    public string $name;
+    public string $email;
+    public string $role;
 
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
-
-    protected $casts = [
-        'email_verified_at' => 'datetime',
-        'password' => 'hashed',
-    ];
-
-    public function isAdmin(): bool
+    public function __construct(array $attributes)
     {
-        return $this->role === 'admin';
+        $this->id = $attributes['id'] ?? self::$autoIncrement++;
+        $this->name = $attributes['name'] ?? 'ผู้ใช้งาน';
+        $this->email = $attributes['email'] ?? 'user@example.com';
+        $this->role = $attributes['role'] ?? 'admin';
     }
 
-    public function isStaff(): bool
+    public static function factory(): UserFactory
     {
-        return in_array($this->role, ['admin', 'staff']);
-    }
-
-    public function isViewer(): bool
-    {
-        return in_array($this->role, ['admin', 'staff', 'viewer']);
+        return new UserFactory();
     }
 }
+
+final class UserFactory
+{
+    public function create(array $attributes = []): User
+    {
+        return new User($attributes);
+    }
+}
+
