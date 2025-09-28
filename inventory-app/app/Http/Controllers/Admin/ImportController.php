@@ -4,13 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ImportRequest;
+use App\Services\AuditLogger;
 use App\Services\ImportService;
 use Illuminate\Http\Request;
 use RuntimeException;
 
 class ImportController extends Controller
 {
-    public function __construct(private readonly ImportService $service)
+    public function __construct(private readonly ImportService $service, private readonly AuditLogger $auditLogger)
     {
     }
 
@@ -27,13 +28,28 @@ class ImportController extends Controller
             $request->autoCreateCategory()
         );
 
-        return view('admin.import.preview', [
+        $viewData = [
             'summary' => $result['summary'],
             'previewRows' => $result['preview_rows'],
             'fileToken' => $result['file_token'],
             'canCommit' => $result['can_commit'],
             'fileError' => $result['file_error'],
-        ]);
+        ];
+
+        $this->auditLogger->log(
+            'import.preview',
+            'เตรียมข้อมูลนำเข้าสินค้า',
+            [
+                'file_name' => $result['summary']['original_name'] ?? null,
+                'total_rows' => $result['summary']['total_rows'] ?? 0,
+                'valid_rows' => $result['summary']['valid_rows'] ?? 0,
+                'error_rows' => $result['summary']['error_rows'] ?? 0,
+            ],
+            null,
+            $request->user(),
+        );
+
+        return view('admin.import.preview', $viewData);
     }
 
     public function commit(Request $request)
@@ -43,6 +59,14 @@ class ImportController extends Controller
             strtoupper((string) $request->input('duplicate_mode', 'UPSERT')),
             $request->boolean('auto_create_category'),
             $request->user()
+        );
+
+        $this->auditLogger->log(
+            'import.commit',
+            'นำเข้าข้อมูลสินค้าสำเร็จ',
+            $result['summary'],
+            null,
+            $request->user(),
         );
 
         return view('admin.import.result', [
