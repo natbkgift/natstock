@@ -88,12 +88,7 @@ class ReportController extends Controller
 
         $products = $this->reports->valuation($filters);
         $categories = $this->loadCategories();
-
-        $calculationSource = $products instanceof LengthAwarePaginator
-            ? Collection::make($products->items())
-            : $products;
-
-        $totalValue = $this->reports->calculateValuationTotal($calculationSource);
+        $totalValue = $this->reports->valuationTotal($filters);
 
         return view('admin.reports.valuation', [
             'products' => $products,
@@ -247,6 +242,7 @@ class ReportController extends Controller
     protected function exportValuationCsv(Collection $products)
     {
         $filename = sprintf('valuation_%s.csv', Carbon::today()->format('Ymd'));
+        $total = $this->reports->calculateValuationTotal($products);
 
         $rows = $products->map(function ($product): array {
             $categoryName = $product->category->name ?? '-';
@@ -263,10 +259,6 @@ class ReportController extends Controller
                 $totalValue,
             ];
         });
-
-        $total = $rows->reduce(function (float $carry, array $row): float {
-            return $carry + (float) $row[5];
-        }, 0.0);
 
         $footer = ['รวมทั้งสิ้น', '', '', '', '', number_format($total, 2, '.', '')];
 

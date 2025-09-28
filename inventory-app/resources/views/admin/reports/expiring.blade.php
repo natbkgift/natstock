@@ -59,12 +59,10 @@
                 <tbody>
                     @forelse($products as $product)
                         @php
-                            $expireDate = $product->expire_date instanceof \Carbon\Carbon
-                                ? $product->expire_date
-                                : ($product->expire_date ? \Carbon\Carbon::parse($product->expire_date) : null);
-                            $daysRemaining = isset($product->days_remaining)
+                            $expireDate = $product->expire_date;
+                            $daysRemaining = $product->days_remaining !== null
                                 ? max(0, (int) $product->days_remaining)
-                                : ($expireDate ? max(0, \Carbon\Carbon::today()->diffInDays($expireDate, false)) : null);
+                                : null;
                         @endphp
                         <tr>
                             <td>{{ $product->sku }}</td>

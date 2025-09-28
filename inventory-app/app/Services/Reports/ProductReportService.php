@@ -102,6 +102,18 @@ class ProductReportService
     /**
      * @param  array<string, mixed>  $filters
      */
+    public function valuationTotal(array $filters): float
+    {
+        $total = $this->baseQuery($filters)
+            ->selectRaw('COALESCE(SUM(qty * cost_price), 0) as aggregate_total')
+            ->value('aggregate_total');
+
+        return (float) $total;
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
     protected function baseQuery(array $filters): Builder
     {
         $search = trim((string) ($filters['search'] ?? ''));

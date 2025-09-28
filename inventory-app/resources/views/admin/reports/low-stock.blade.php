@@ -47,9 +47,7 @@
                 <tbody>
                     @forelse($products as $product)
                         @php
-                            $expireDate = $product->expire_date instanceof \Carbon\Carbon
-                                ? $product->expire_date->format('Y-m-d')
-                                : ($product->expire_date ?: '-');
+                            $expireDate = $product->expire_date?->format('Y-m-d') ?? '-';
                         @endphp
                         <tr>
                             <td>{{ $product->sku }}</td>
@@ -60,7 +58,7 @@
                                 <span class="badge badge-danger ml-2">สต็อกต่ำ</span>
                             </td>
                             <td class="text-right">{{ number_format((int) $product->reorder_point) }}</td>
-                            <td>{{ $expireDate ?: '-' }}</td>
+                            <td>{{ $expireDate }}</td>
                             <td>
                                 <span class="badge {{ $product->is_active ? 'badge-success' : 'badge-secondary' }}">
                                     {{ $product->is_active ? 'ใช้งาน' : 'ปิดใช้งาน' }}
