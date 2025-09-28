@@ -1,0 +1,2 @@
+sku,name,category,qty,cost_price,sale_price,expire_date,reorder_point,note,is_active
+P001,ตัวอย่างสินค้า,หมวดหมู่ตัวอย่าง,100,10,15,2025-12-31,20,หมายเหตุ,1
