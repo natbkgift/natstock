@@ -33,6 +33,11 @@ class Carbon extends DateTimeImmutable
         return new self($time);
     }
 
+    public static function instance(DateTimeInterface $dateTime): self
+    {
+        return new self($dateTime->format(DateTimeInterface::ATOM));
+    }
+
     public function copy(): self
     {
         return new self($this->format(DateTimeInterface::ATOM));

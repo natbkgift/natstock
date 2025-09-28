@@ -9,6 +9,15 @@ if (!function_exists('now')) {
     }
 }
 
+if (!function_exists('storage_path')) {
+    function storage_path(string $path = ''): string
+    {
+        $base = dirname(__DIR__) . '/storage';
+
+        return $path === '' ? $base : $base . '/' . ltrim($path, '/');
+    }
+}
+
 if (!function_exists('bcrypt')) {
     function bcrypt(string $value): string
     {
@@ -24,6 +33,17 @@ if (!function_exists('response')) {
             public function download(string $path, string $name): string
             {
                 return sprintf('download:%s:%s', $path, $name);
+            }
+
+            public function streamDownload(callable $callback, string $name, array $headers = []): string
+            {
+                unset($headers);
+
+                ob_start();
+                $callback();
+                $content = ob_get_clean();
+
+                return sprintf('stream-download:%s:%s', $name, base64_encode($content ?: ''));
             }
         };
     }
