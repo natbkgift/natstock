@@ -1,37 +1,29 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Models;
 
-final class User
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class User extends Authenticatable
 {
-    private static int $autoIncrement = 1;
+    use HasFactory;
+    use Notifiable;
 
-    public int $id;
-    public string $name;
-    public string $email;
-    public string $role;
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'role',
+    ];
 
-    public function __construct(array $attributes)
-    {
-        $this->id = $attributes['id'] ?? self::$autoIncrement++;
-        $this->name = $attributes['name'] ?? 'ผู้ใช้งาน';
-        $this->email = $attributes['email'] ?? 'user@example.com';
-        $this->role = $attributes['role'] ?? 'admin';
-    }
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
 
-    public static function factory(): UserFactory
-    {
-        return new UserFactory();
-    }
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+    ];
 }
-
-final class UserFactory
-{
-    public function create(array $attributes = []): User
-    {
-        return new User($attributes);
-    }
-}
-
