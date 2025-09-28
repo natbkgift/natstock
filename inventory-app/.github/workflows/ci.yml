@@ -1,60 +1,43 @@
-name: Inventory CI
+name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: ["main", "work"]
   pull_request:
 
-concurrency:
-  group: inventory-ci-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  tests:
+  test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    defaults:
-      run:
-        shell: bash
-        working-directory: inventory-app
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Cache Composer dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.composer/cache/files
-          key: ${{ runner.os }}-composer-${{ hashFiles('inventory-app/composer.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-composer-
-
-      - name: Set up PHP
+      - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
+          extensions: mbstring, sqlite3, openssl, pdo_sqlite
           coverage: none
-          extensions: sqlite3, zip
-          tools: composer
-
-      - name: Validate composer.json
-        run: composer validate --no-interaction
 
       - name: Install Composer dependencies
-        run: composer install --no-interaction --no-progress --prefer-dist
+        run: composer install --prefer-dist --no-progress --no-interaction
+        working-directory: inventory-app
 
-      - name: Prepare application environment
+      - name: Prepare environment
         run: |
-          if [ ! -f .env ]; then
-            cp .env.example .env
-          fi
-          touch database/database.sqlite
-          php artisan key:generate --force
+          cp .env.example .env
+          php artisan key:generate
+        working-directory: inventory-app
 
-      - name: Run database migrations
+      - name: Run migrations
         run: php artisan migrate --force
+        working-directory: inventory-app
 
-      - name: Execute test suite
-        run: php artisan test
+      - name: Run Pint (test mode)
+        run: ./vendor/bin/pint --test
+        working-directory: inventory-app
+
+      - name: Run Pest tests
+        run: ./vendor/bin/pest
+        working-directory: inventory-app

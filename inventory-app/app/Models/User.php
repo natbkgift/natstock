@@ -1,23 +1,45 @@
 <?php
+
 namespace App\Models;
 
-use PDO;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-class User extends Model
+class User extends Authenticatable
 {
-    protected static string $table = 'users';
+    use HasApiTokens, HasFactory, Notifiable;
 
-    public int $id;
-    public string $name;
-    public string $email;
-    public string $password;
-    public string $role;
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'role',
+    ];
 
-    public static function findByEmail(string $email): ?self
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+    ];
+
+    public function isAdmin(): bool
     {
-        $stmt = db()->prepare('SELECT * FROM users WHERE email = :email LIMIT 1');
-        $stmt->execute(['email' => $email]);
-        $data = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $data ? static::fromArray($data) : null;
+        return $this->role === 'admin';
+    }
+
+    public function isStaff(): bool
+    {
+        return in_array($this->role, ['admin', 'staff']);
+    }
+
+    public function isViewer(): bool
+    {
+        return in_array($this->role, ['admin', 'staff', 'viewer']);
     }
 }
