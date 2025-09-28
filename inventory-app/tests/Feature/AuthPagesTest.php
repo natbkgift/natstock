@@ -13,7 +13,7 @@ test('หน้าล็อกอินแสดงผลภาษาไทย',
 });
 
 test('เมื่อเข้าสู่ระบบแล้วเข้าถึงแดชบอร์ดได้', function () {
-    $user = User::factory()->create();
+    $user = new User(['id' => 1, 'name' => 'Admin', 'role' => 'admin']);
 
     actingAs($user)
         ->get(route('admin.dashboard'))

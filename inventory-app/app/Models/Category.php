@@ -10,13 +10,13 @@ class Category extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
+    protected array $fillable = [
         'name',
         'note',
         'is_active',
     ];
 
-    protected $casts = [
+    protected array $casts = [
         'is_active' => 'boolean',
     ];
 

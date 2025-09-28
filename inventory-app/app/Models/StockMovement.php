@@ -10,7 +10,7 @@ class StockMovement extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
+    protected array $fillable = [
         'product_id',
         'type',
         'qty',
@@ -19,7 +19,7 @@ class StockMovement extends Model
         'happened_at',
     ];
 
-    protected $casts = [
+    protected array $casts = [
         'qty' => 'integer',
         'happened_at' => 'datetime',
     ];

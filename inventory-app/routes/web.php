@@ -20,6 +20,9 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::post('/movements/out', [MovementController::class, 'storeOut'])->name('movements.store.out');
     Route::post('/movements/adjust', [MovementController::class, 'storeAdjust'])->name('movements.store.adjust');
     Route::get('/import', [ImportController::class, 'index'])->name('import.index');
+    Route::post('/import/preview', [ImportController::class, 'preview'])->name('import.preview');
+    Route::post('/import/commit', [ImportController::class, 'commit'])->name('import.commit');
+    Route::get('/import/error/{token}', [ImportController::class, 'downloadErrors'])->name('import.errors.download');
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
 });
 

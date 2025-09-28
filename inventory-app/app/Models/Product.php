@@ -13,7 +13,7 @@ class Product extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
+    protected array $fillable = [
         'sku',
         'name',
         'note',
@@ -26,7 +26,7 @@ class Product extends Model
         'is_active',
     ];
 
-    protected $casts = [
+    protected array $casts = [
         'cost_price' => 'decimal:2',
         'sale_price' => 'decimal:2',
         'expire_date' => 'date',

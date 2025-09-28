@@ -164,10 +164,11 @@ function uses(mixed ...$args): void
     // Traits are not required in the simplified environment.
 }
 
-function route(string $name): string
+function route(string $name, array $parameters = []): string
 {
     return match ($name) {
         'admin.dashboard' => '/admin/dashboard',
+        'admin.import.errors.download' => '/admin/import/error/' . ($parameters['token'] ?? ''),
         default => $name,
     };
 }
