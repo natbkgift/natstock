@@ -148,7 +148,7 @@ php artisan inventory:backup        # สร้างไฟล์สำรอง
 - ไฟล์สำรองถูกสร้างใน `storage/app/backups/backup-YYYYmmdd-His.zip`
 - ภายใน zip มี `database.json`, `meta.json` และไฟล์ใน `storage/app/public`, `storage/app/tmp`
 - สามารถดาวน์โหลดไฟล์จากหน้า `/admin/backup` และนำไปเก็บนอกเซิร์ฟเวอร์เพื่อความปลอดภัย
-- สำหรับการกู้คืน ให้แตกไฟล์แล้วนำข้อมูลไป import ตามขั้นตอนของฐานข้อมูลที่ใช้งานจริง (MySQL/PostgreSQL)
+- สำหรับการกู้คืน: ไฟล์ `database.json` บรรจุข้อมูลตารางในรูปแบบ JSON ซึ่งการนำกลับเข้าระบบต้องใช้สคริปต์เฉพาะหรือนำเข้าด้วยตนเอง ไม่ใช่การ import โดยตรงเหมือนไฟล์ SQL dump.
 
 ### Deployment Checklist
 1. ติดตั้ง PHP 8.3 และฐานข้อมูล MySQL 8 หรือ PostgreSQL 15 ขึ้นไป
