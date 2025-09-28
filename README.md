@@ -175,3 +175,5 @@ php artisan inventory:backup        # สร้างไฟล์สำรอง
 php tests/run.php
 ```
 คำสั่งด้านบนจะรันชุดทดสอบ Pest แบบ simplified framework ซึ่งครอบคลุมทั้งเคสการนำเข้าสินค้าปกติ, UPSERT, SKIP, การสร้างหมวดหมู่ใหม่ และการส่งออกไฟล์ error.
+
+> **หมายเหตุ:** โปรเจกต์เวอร์ชันนี้รันอยู่บนโครง Laravel แบบ sandbox เพื่อใช้ในการประเมินผล ดังนั้นคำสั่ง `php artisan test` จะไม่พร้อมใช้งานจริง (คลาสของ Laravel Framework ถูกจำลองไว้ในโฟลเดอร์ `stubs/`). กรุณาใช้ `php tests/run.php` สำหรับการตรวจสอบอัตโนมัติแทน
