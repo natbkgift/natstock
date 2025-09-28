@@ -122,7 +122,7 @@
                                         <a href="{{ route('admin.products.edit', $product) }}" class="btn btn-outline-secondary">แก้ไข</a>
                                     @endcan
                                     @can('delete', $product)
-                                        <form action="{{ route('admin.products.destroy', $product) }}" method="POST" onsubmit="return confirm('ยืนยันการลบสินค้านี้หรือไม่?');">
+                                        <form action="{{ route('admin.products.destroy', $product) }}" method="POST" onsubmit="return confirm('ยืนยันการลบสินค้านี้หรือไม่?');" style="display: contents;">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="btn btn-outline-danger">ลบ</button>

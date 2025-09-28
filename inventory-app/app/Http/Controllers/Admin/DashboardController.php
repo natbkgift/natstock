@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\StockMovement;
+use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Str;
 
 class DashboardController extends Controller
 {
@@ -21,10 +21,34 @@ class DashboardController extends Controller
             $expiringDays = 30;
         }
 
+        $today = Carbon::today();
+        $expiringBoundaries = [
+            30 => $today->copy()->addDays(30),
+            60 => $today->copy()->addDays(60),
+            90 => $today->copy()->addDays(90),
+        ];
+
+        $expiringCountsResult = Product::query()
+            ->whereNotNull('expire_date')
+            ->selectRaw(
+                'SUM(CASE WHEN expire_date BETWEEN ? AND ? THEN 1 ELSE 0 END) as expiring_30,
+                  SUM(CASE WHEN expire_date BETWEEN ? AND ? THEN 1 ELSE 0 END) as expiring_60,
+                  SUM(CASE WHEN expire_date BETWEEN ? AND ? THEN 1 ELSE 0 END) as expiring_90',
+                [
+                    $today->toDateString(),
+                    $expiringBoundaries[30]->toDateString(),
+                    $today->toDateString(),
+                    $expiringBoundaries[60]->toDateString(),
+                    $today->toDateString(),
+                    $expiringBoundaries[90]->toDateString(),
+                ]
+            )
+            ->first();
+
         $expiringCounts = [
-            30 => Product::query()->expiringIn(30)->count(),
-            60 => Product::query()->expiringIn(60)->count(),
-            90 => Product::query()->expiringIn(90)->count(),
+            30 => (int) ($expiringCountsResult->expiring_30 ?? 0),
+            60 => (int) ($expiringCountsResult->expiring_60 ?? 0),
+            90 => (int) ($expiringCountsResult->expiring_90 ?? 0),
         ];
 
         $selectedExpiringCount = $expiringCounts[$expiringDays];
@@ -52,21 +76,9 @@ class DashboardController extends Controller
     {
         $formatted = number_format($value, 2);
 
-        $thaiDigits = [
-            '0' => '๐',
-            '1' => '๑',
-            '2' => '๒',
-            '3' => '๓',
-            '4' => '๔',
-            '5' => '๕',
-            '6' => '๖',
-            '7' => '๗',
-            '8' => '๘',
-            '9' => '๙',
-            ',' => ',',
-            '.' => '.',
-        ];
+        $westernDigits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+        $thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
 
-        return Str::of($formatted)->replace(array_keys($thaiDigits), array_values($thaiDigits));
+        return str_replace($westernDigits, $thaiDigits, $formatted);
     }
 }

@@ -15,6 +15,7 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::resource('categories', CategoryController::class)->except(['show']);
     Route::resource('products', ProductController::class)->except(['show']);
     Route::get('/movements', [MovementController::class, 'index'])->name('movements.index');
+    Route::get('/movements/products/search', [MovementController::class, 'searchProducts'])->name('movements.products.search');
     Route::post('/movements/in', [MovementController::class, 'storeIn'])->name('movements.store.in');
     Route::post('/movements/out', [MovementController::class, 'storeOut'])->name('movements.store.out');
     Route::post('/movements/adjust', [MovementController::class, 'storeAdjust'])->name('movements.store.adjust');

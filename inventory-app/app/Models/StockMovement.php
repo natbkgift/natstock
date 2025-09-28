@@ -33,4 +33,20 @@ class StockMovement extends Model
     {
         return $this->belongsTo(User::class, 'actor_id');
     }
+
+    public function getFormattedQtyAttribute(): string
+    {
+        $qty = number_format($this->qty);
+
+        switch ($this->type) {
+            case 'in':
+                return '+' . $qty;
+            case 'out':
+                return '-' . $qty;
+            case 'adjust':
+                return 'Δ' . $qty;
+            default:
+                return $qty;
+        }
+    }
 }
