@@ -258,8 +258,11 @@
             }
 
             const qty = product.qty ?? $(product.element).data('qty');
+            const container = $('<div>').addClass('d-flex justify-content-between');
+            $('<span>').text(product.text ?? '').appendTo(container);
+            $('<small>').addClass('text-muted').text(`คงเหลือ ${qty ?? '-'}`).appendTo(container);
 
-            return `<div class="d-flex justify-content-between"><span>${product.text}</span><small class="text-muted">คงเหลือ ${qty ?? '-'}</small></div>`;
+            return container;
         }
 
         function formatProductSelection(product) {
@@ -268,8 +271,10 @@
             }
 
             const qty = product.qty ?? $(product.element).data('qty');
+            const container = $('<span>');
+            container.text(`${product.text ?? ''} (คงเหลือ ${qty ?? '-'})`);
 
-            return `${product.text} (คงเหลือ ${qty ?? '-'})`;
+            return container;
         }
 
         $('.select2').select2({
@@ -293,8 +298,7 @@
                 cache: true
             },
             templateResult: formatProductOption,
-            templateSelection: formatProductSelection,
-            escapeMarkup: markup => markup
+            templateSelection: formatProductSelection
         });
     });
 </script>

@@ -45,12 +45,9 @@ class MovementController extends Controller
         $movements = $movementsQuery->paginate(20)->appends($request->query());
 
         $oldInput = $request->session()->getOldInput();
-        $oldFormType = $oldInput['form_type'] ?? null;
-        $selectedProductIds = collect([
-            $oldFormType === 'in' ? ($oldInput['product_id'] ?? null) : null,
-            $oldFormType === 'out' ? ($oldInput['product_id'] ?? null) : null,
-            $oldFormType === 'adjust' ? ($oldInput['product_id'] ?? null) : null,
-        ])->filter()->unique()->all();
+        $selectedProductIds = array_values(array_filter([
+            $oldInput['product_id'] ?? null,
+        ]));
 
         $productOptions = [];
         if ($selectedProductIds !== []) {
