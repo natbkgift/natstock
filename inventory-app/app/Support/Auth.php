@@ -46,6 +46,10 @@ class Auth
             return false;
         }
 
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id(true);
+        }
+
         $_SESSION['user_id'] = $user->id;
         $this->user = $user;
         return true;

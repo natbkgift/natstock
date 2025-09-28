@@ -30,7 +30,7 @@ class StockService
             if ($type === 'adjust') {
                 $delta = $amount - $currentQty;
             } elseif ($type === 'out') {
-                $delta = -$amount;
+                $delta = $newQty - $currentQty;
             } else {
                 $delta = $amount;
             }
@@ -43,12 +43,13 @@ class StockService
 
             if ($type === 'adjust') {
                 $movementAmount = abs($delta);
-                $movementType = $delta >= 0 ? 'adjust' : 'adjust';
-                $loggedAmount = $amount;
+                $movementType = 'adjust';
+            } elseif ($type === 'out') {
+                $movementAmount = abs($delta);
+                $movementType = 'out';
             } else {
                 $movementAmount = $amount;
                 $movementType = $type;
-                $loggedAmount = $newQty;
             }
 
             StockMovement::record([
