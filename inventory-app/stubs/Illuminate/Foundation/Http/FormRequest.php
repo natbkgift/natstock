@@ -2,7 +2,9 @@
 
 namespace Illuminate\Foundation\Http;
 
-class FormRequest
+use Illuminate\Http\Request;
+
+class FormRequest extends Request
 {
     public function authorize(): bool
     {

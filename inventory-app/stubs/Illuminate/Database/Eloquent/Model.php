@@ -17,6 +17,12 @@ class Model
     /** @var list<string> */
     protected array $fillable = [];
 
+    /** @var array<class-string<static>, array<int, array<string, mixed>>> */
+    private static array $storage = [];
+
+    /** @var array<class-string<static>, int> */
+    private static array $increments = [];
+
     public function __construct(array $attributes = [])
     {
         $this->fill($attributes);
@@ -86,6 +92,65 @@ class Model
     public static function query(): Builder
     {
         return new Builder(static::class);
+    }
+
+    public static function create(array $attributes): static
+    {
+        $model = new static($attributes);
+        $model->save();
+
+        return $model;
+    }
+
+    public function update(array $attributes = []): bool
+    {
+        $this->fill($attributes);
+
+        return $this->save();
+    }
+
+    public function save(): bool
+    {
+        $class = static::class;
+
+        if (!isset($this->attributes['id'])) {
+            $this->attributes['id'] = self::nextId($class);
+        }
+
+        self::$storage[$class][$this->attributes['id']] = $this->attributes;
+
+        return true;
+    }
+
+    public static function truncate(): void
+    {
+        $class = static::class;
+        self::$storage[$class] = [];
+        self::$increments[$class] = 1;
+    }
+
+    public static function all(): array
+    {
+        $class = static::class;
+        $records = self::$storage[$class] ?? [];
+
+        return array_values(array_map(fn (array $attributes) => new static($attributes), $records));
+    }
+
+    public static function getStoredRecords(): array
+    {
+        $class = static::class;
+
+        return self::$storage[$class] ?? [];
+    }
+
+    private static function nextId(string $class): int
+    {
+        if (!isset(self::$increments[$class])) {
+            self::$increments[$class] = 1;
+        }
+
+        return self::$increments[$class]++;
     }
 
     public function belongsTo(string $related, ?string $foreignKey = null, ?string $ownerKey = null): BelongsTo

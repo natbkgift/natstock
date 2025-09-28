@@ -18,6 +18,7 @@ npm-debug.log
 *.jpg
 *.jpeg
 *.xlsx
+!public/templates/*.xlsx
 .idea/
 .vscode/
 .php-cs-fixer.cache
