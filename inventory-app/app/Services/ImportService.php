@@ -7,11 +7,13 @@ use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\User;
 use Carbon\Carbon;
+use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
 use RuntimeException;
 use Throwable;
 use ZipArchive;
+use function storage_path;
 
 class ImportService
 {
@@ -34,8 +36,7 @@ class ImportService
 
     public function __construct()
     {
-        $basePath = dirname(__DIR__, 2);
-        $this->storagePath = $basePath . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'tmp';
+        $this->storagePath = storage_path('app/tmp');
     }
 
     /**
@@ -155,7 +156,11 @@ class ImportService
                     continue;
                 }
 
-                $validRows[] = $validation['normalized'];
+                $validRows[] = [
+                    'row_number' => $row['row_number'],
+                    'normalized' => $validation['normalized'],
+                    'raw' => $row['values'],
+                ];
             }
         } catch (Throwable $throwable) {
             $summary['errors'] = max($summary['errors'], 1);
@@ -172,11 +177,16 @@ class ImportService
         }
 
         if ($validRows !== []) {
-            DB::transaction(function () use (&$summary, $validRows, $duplicateMode, $autoCreateCategory, $actor): void {
+            DB::transaction(function () use (&$summary, &$errorRows, $validRows, $duplicateMode, $autoCreateCategory, $actor): void {
                 foreach (array_chunk($validRows, self::CHUNK_SIZE) as $chunk) {
                     foreach ($chunk as $rowData) {
-                        $result = $this->upsertOrSkip($rowData, $duplicateMode, $autoCreateCategory, $actor);
-                        $summary[$result]++;
+                        try {
+                            $result = $this->upsertOrSkip($rowData['normalized'], $duplicateMode, $autoCreateCategory, $actor);
+                            $summary[$result]++;
+                        } catch (RuntimeException $exception) {
+                            $summary['errors']++;
+                            $errorRows[] = $this->buildErrorRow($rowData['row_number'], [$exception->getMessage()], $rowData['raw']);
+                        }
                     }
                 }
             });
@@ -255,11 +265,12 @@ class ImportService
 
         $expire = trim((string) ($row['expire_date'] ?? ''));
         if ($expire !== '') {
-            $date = Carbon::createFromFormat('Y-m-d', $expire);
-            if ($date === false) {
+            $immutable = DateTimeImmutable::createFromFormat('!Y-m-d', $expire);
+            $dateErrors = DateTimeImmutable::getLastErrors() ?: ['warning_count' => 0, 'error_count' => 0];
+            if ($immutable === false || ($dateErrors['warning_count'] ?? 0) > 0 || ($dateErrors['error_count'] ?? 0) > 0 || $immutable->format('Y-m-d') !== $expire) {
                 $errors[] = 'expire_date: รูปแบบวันที่ต้องเป็น YYYY-MM-DD';
             } else {
-                $normalized['expire_date'] = $date;
+                $normalized['expire_date'] = Carbon::instance($immutable);
             }
         } else {
             $normalized['expire_date'] = null;
@@ -392,28 +403,29 @@ class ImportService
             throw new RuntimeException('ไม่สามารถเปิดไฟล์ CSV ได้');
         }
 
-        $header = fgetcsv($handle);
-        if ($header === false) {
-            fclose($handle);
-            throw new RuntimeException('ไม่พบข้อมูลในไฟล์ CSV');
-        }
-
-        $header = $this->sanitizeHeader($header);
-        $indexes = $this->resolveColumnIndexes($header);
-
-        $rowNumber = 1;
-        while (($row = fgetcsv($handle)) !== false) {
-            $rowNumber++;
-            $values = [];
-            foreach (self::TEMPLATE_COLUMNS as $column) {
-                $index = $indexes[$column];
-                $values[$column] = array_key_exists($index, $row) ? trim((string) $row[$index]) : null;
+        try {
+            $header = fgetcsv($handle);
+            if ($header === false) {
+                throw new RuntimeException('ไม่พบข้อมูลในไฟล์ CSV');
             }
 
-            yield ['row_number' => $rowNumber, 'values' => $values];
-        }
+            $header = $this->sanitizeHeader($header);
+            $indexes = $this->resolveColumnIndexes($header);
 
-        fclose($handle);
+            $rowNumber = 1;
+            while (($row = fgetcsv($handle)) !== false) {
+                $rowNumber++;
+                $values = [];
+                foreach (self::TEMPLATE_COLUMNS as $column) {
+                    $index = $indexes[$column];
+                    $values[$column] = array_key_exists($index, $row) ? trim((string) $row[$index]) : null;
+                }
+
+                yield ['row_number' => $rowNumber, 'values' => $values];
+            }
+        } finally {
+            fclose($handle);
+        }
     }
 
     private function readXlsxRows(string $path): iterable
@@ -423,44 +435,46 @@ class ImportService
             throw new RuntimeException('ไม่สามารถเปิดไฟล์ XLSX ได้');
         }
 
-        $sharedStrings = $this->parseSharedStrings($zip->getFromName('xl/sharedStrings.xml') ?: '');
-        $sheetContent = $zip->getFromName('xl/worksheets/sheet1.xml');
+        try {
+            $sharedStrings = $this->parseSharedStrings($zip->getFromName('xl/sharedStrings.xml') ?: '');
+            $sheetContent = $zip->getFromName('xl/worksheets/sheet1.xml');
 
-        if ($sheetContent === false) {
-            throw new RuntimeException('ไม่พบข้อมูลในไฟล์ XLSX');
-        }
-
-        $sheet = simplexml_load_string($sheetContent);
-        if ($sheet === false) {
-            throw new RuntimeException('ไม่สามารถอ่านข้อมูลในไฟล์ XLSX ได้');
-        }
-
-        $rows = $sheet->sheetData->row ?? [];
-        if (count($rows) === 0) {
-            throw new RuntimeException('ไม่พบข้อมูลในไฟล์ XLSX');
-        }
-
-        $headerRow = $this->extractRowValues($rows[0]->c ?? [], $sharedStrings);
-        $header = $this->sanitizeHeader($headerRow);
-        $indexes = $this->resolveColumnIndexes($header);
-
-        foreach ($rows as $rowElement) {
-            $rowIndex = (int) $rowElement['r'];
-            if ($rowIndex === 1) {
-                continue;
+            if ($sheetContent === false) {
+                throw new RuntimeException('ไม่พบข้อมูลในไฟล์ XLSX');
             }
 
-            $cells = $this->extractRowValues($rowElement->c ?? [], $sharedStrings);
-            $values = [];
-            foreach (self::TEMPLATE_COLUMNS as $column) {
-                $position = $indexes[$column];
-                $values[$column] = array_key_exists($position, $cells) ? trim((string) $cells[$position]) : null;
+            $sheet = simplexml_load_string($sheetContent);
+            if ($sheet === false) {
+                throw new RuntimeException('ไม่สามารถอ่านข้อมูลในไฟล์ XLSX ได้');
             }
 
-            yield ['row_number' => $rowIndex, 'values' => $values];
-        }
+            $rows = $sheet->sheetData->row ?? [];
+            if (count($rows) === 0) {
+                throw new RuntimeException('ไม่พบข้อมูลในไฟล์ XLSX');
+            }
 
-        $zip->close();
+            $headerRow = $this->extractRowValues($rows[0]->c ?? [], $sharedStrings);
+            $header = $this->sanitizeHeader($headerRow);
+            $indexes = $this->resolveColumnIndexes($header);
+
+            foreach ($rows as $rowElement) {
+                $rowIndex = (int) $rowElement['r'];
+                if ($rowIndex === 1) {
+                    continue;
+                }
+
+                $cells = $this->extractRowValues($rowElement->c ?? [], $sharedStrings);
+                $values = [];
+                foreach (self::TEMPLATE_COLUMNS as $column) {
+                    $position = $indexes[$column];
+                    $values[$column] = array_key_exists($position, $cells) ? trim((string) $cells[$position]) : null;
+                }
+
+                yield ['row_number' => $rowIndex, 'values' => $values];
+            }
+        } finally {
+            $zip->close();
+        }
     }
 
     private function sanitizeHeader(array $header): array
@@ -788,8 +802,8 @@ class ImportService
 
     private function ensureStorageDirectory(): void
     {
-        if (!is_dir($this->storagePath)) {
-            mkdir($this->storagePath, 0777, true);
+        if (!is_dir($this->storagePath) && !mkdir($this->storagePath, 0755, true) && !is_dir($this->storagePath)) {
+            throw new RuntimeException('ไม่สามารถสร้างไดเรกทอรีจัดเก็บไฟล์ชั่วคราวได้');
         }
     }
 
@@ -801,7 +815,7 @@ class ImportService
         $destination = $this->storagePath . DIRECTORY_SEPARATOR . $token;
 
         $sourcePath = $this->resolveRealPath($file);
-        if (!@copy($sourcePath, $destination)) {
+        if (!copy($sourcePath, $destination)) {
             throw new RuntimeException('ไม่สามารถจัดเก็บไฟล์ชั่วคราวได้');
         }
 
