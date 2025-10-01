@@ -165,9 +165,17 @@ if (!function_exists('test')) {
 }
 
 if (!function_exists('uses')) {
-    function uses(mixed ...$args): void
+    function uses(mixed ...$args): object
     {
-        // Traits are not required in the simplified environment.
+        unset($args);
+
+        return new class
+        {
+            public function in(string $directory): void
+            {
+                unset($directory);
+            }
+        };
     }
 }
 
@@ -185,6 +193,72 @@ if (!function_exists('route')) {
         };
     }
 }
+
+if (!function_exists('expect')) {
+    function expect(mixed $value): object
+    {
+        return new class($value)
+        {
+            public function __construct(private mixed $value)
+            {
+            }
+
+            public function toBe(mixed $expected): void
+            {
+                if ($this->value !== $expected) {
+                    throw new \AssertionError(sprintf('Failed asserting that %s is identical to %s.', var_export($this->value, true), var_export($expected, true)));
+                }
+            }
+
+            public function toBeInstanceOf(string $class): void
+            {
+                if (!($this->value instanceof $class)) {
+                    throw new \AssertionError(sprintf('Failed asserting that value is instance of %s.', $class));
+                }
+            }
+
+            public function toContain(string $needle): void
+            {
+                if (!is_string($this->value)) {
+                    throw new \AssertionError('Failed asserting that non-string value contains substring.');
+                }
+
+                if (!str_contains($this->value, $needle)) {
+                    throw new \AssertionError(sprintf('Failed asserting that "%s" contains "%s".', $this->value, $needle));
+                }
+            }
+
+            public function toStartWith(string $prefix): void
+            {
+                if (!is_string($this->value) || !str_starts_with($this->value, $prefix)) {
+                    throw new \AssertionError(sprintf('Failed asserting that value starts with "%s".', $prefix));
+                }
+            }
+        };
+    }
+}
+
+tests()->beforeEach(function (): void {
+    foreach ([
+        \App\Models\Category::class,
+        \App\Models\Product::class,
+        \App\Models\StockMovement::class,
+        \App\Models\User::class,
+    ] as $modelClass) {
+        if (method_exists($modelClass, 'resetStubState')) {
+            $modelClass::resetStubState();
+        }
+    }
+
+    $tempDir = storage_path('app/tmp');
+    if (is_dir($tempDir)) {
+        foreach (glob($tempDir . '/*') ?: [] as $file) {
+            if (is_file($file)) {
+                @unlink($file);
+            }
+        }
+    }
+});
 }
 
 namespace Pest\Laravel {
