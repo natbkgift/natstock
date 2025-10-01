@@ -11,6 +11,6 @@
         "bootstrap": "^5.3.3",
         "laravel-vite-plugin": "^1.0.0",
         "lodash": "^4.17.21",
-        "vite": "^7.1.7"
+        "vite": "^6.3.6"
     }
 }
