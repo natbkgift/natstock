@@ -13,13 +13,36 @@ $candidates = [
     __DIR__ . '/natstock',    // when this lives in document root
 ];
 
+// Fallback: scan nearby directories for a folder that contains bootstrap/app.php
+$searchRoots = [__DIR__, dirname(__DIR__)];
+$scanned = [];
 $appRoot = null;
 foreach ($candidates as $c) {
     if (is_dir($c) && is_file($c.'/bootstrap/app.php')) { $appRoot = $c; break; }
 }
+if (!$appRoot) {
+    foreach ($searchRoots as $root) {
+        if (!is_dir($root)) continue;
+        $entries = @scandir($root) ?: [];
+        foreach ($entries as $e) {
+            if ($e === '.' || $e === '..') continue;
+            $path = $root . DIRECTORY_SEPARATOR . $e;
+            if (is_dir($path)) {
+                $scanned[] = $path;
+                if (is_file($path . '/bootstrap/app.php')) { $appRoot = $path; break 2; }
+            }
+        }
+    }
+}
 
 if (!$appRoot) {
-    err('Could not locate Laravel app. Expected folder "natstock" next to this file.');
+    err('Could not locate Laravel app. Please run /extract.php first so that the app folder (e.g. "natstock/") is created.');
+    if ($scanned) {
+        info('Searched:');
+        echo '<ul style="margin:4px 0 12px">';
+        foreach ($scanned as $s) echo '<li>'.htmlentities($s).'</li>';
+        echo '</ul>';
+    }
     exit;
 }
 
