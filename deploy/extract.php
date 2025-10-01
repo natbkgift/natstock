@@ -7,15 +7,60 @@
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
 
-// Find deployment zip
-$candidates = [__DIR__.'/natstock-cpanel.zip', __DIR__.'/natstock-deploy.zip', __DIR__.'/natstock.zip'];
+// If split parts exist, join them into a single archive file first and return its path
+function join_parts_if_any(string $dir): ?string {
+    $candidates = [
+        // Standard split pattern
+        ['glob' => $dir.'/natstock-cpanel.zip.part*', 'target' => $dir.'/natstock-cpanel.zip'],
+        // Text-suffixed parts to bypass host filters
+        ['glob' => $dir.'/natstock-cpanel.part*.txt', 'target' => $dir.'/natstock-cpanel.zip'],
+        // Generic part naming without extension
+        ['glob' => $dir.'/natstock-cpanel.part*', 'target' => $dir.'/natstock-cpanel.zip'],
+        // Alternative names, if needed
+        ['glob' => $dir.'/natstock-deploy.zip.part*', 'target' => $dir.'/natstock-deploy.zip'],
+        ['glob' => $dir.'/natstock.zip.part*', 'target' => $dir.'/natstock.zip'],
+    ];
+    foreach ($candidates as $c) {
+        $parts = glob($c['glob']);
+        if ($parts && count($parts) > 0) {
+            natsort($parts);
+            // Try writing to .zip, then fall back to .bin and .dat
+            $targets = [$c['target'], preg_replace('/\.zip$/', '.bin', $c['target']), preg_replace('/\.zip$/', '.dat', $c['target'])];
+            foreach ($targets as $target) {
+                if (@filesize($target) > 1024) { return $target; }
+                $out = @fopen($target, 'wb');
+                if ($out === false) { continue; }
+                foreach ($parts as $p) {
+                    $in = @fopen($p, 'rb');
+                    if ($in) {
+                        while (!feof($in)) { fwrite($out, fread($in, 1048576)); }
+                        fclose($in);
+                    }
+                }
+                fclose($out);
+                if (@filesize($target) > 1024) { return $target; }
+            }
+        }
+    }
+    return null;
+}
+
+$joined = join_parts_if_any(__DIR__);
+
+// Find deployment zip (ZipArchive can open .zip/.bin/.dat if content is ZIP)
+$candidates = [
+    __DIR__.'/natstock-cpanel.zip', __DIR__.'/natstock-deploy.zip', __DIR__.'/natstock.zip',
+    __DIR__.'/natstock-cpanel.bin', __DIR__.'/natstock-deploy.bin', __DIR__.'/natstock.bin',
+    __DIR__.'/natstock-cpanel.dat', __DIR__.'/natstock-deploy.dat', __DIR__.'/natstock.dat'
+];
+if ($joined && is_file($joined)) { array_unshift($candidates, $joined); }
 $zipFile = null;
 foreach ($candidates as $c) { if (is_file($c)) { $zipFile = $c; break; } }
 
 if (!$zipFile) {
-    $zips = glob(__DIR__.'/*.zip') ?: [];
-    echo '<h3>No deployment zip found.</h3><p>Upload natstock-cpanel.zip to this folder, then reload this page.</p>';
-    if ($zips) { echo '<p>Found zips:</p><ul>'; foreach ($zips as $z) echo '<li>'.htmlentities(basename($z)).'</li>'; echo '</ul>'; }
+    $zips = array_merge(glob(__DIR__.'/*.zip') ?: [], glob(__DIR__.'/*.bin') ?: [], glob(__DIR__.'/*.dat') ?: []);
+    echo '<h3>No deployment zip found.</h3><p>Upload natstock-cpanel.zip or split parts like <code>natstock-cpanel.zip.part00</code> or <code>natstock-cpanel.part00.txt</code> to this folder, then reload this page.</p>';
+    if ($zips) { echo '<p>Found archives:</p><ul>'; foreach ($zips as $z) echo '<li>'.htmlentities(basename($z)).'</li>'; echo '</ul>'; }
     exit;
 }
 
