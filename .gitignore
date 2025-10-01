@@ -1,0 +1,17 @@
+inventory-app/vendor/
+inventory-app/node_modules/
+/vendor/
+node_modules/
+npm-debug.log
+yarn-error.log
+storage/*.key
+.env
+.env.backup
+.env.production
+Homestead.yaml
+Homestead.json
+/.vagrant
+.phpunit.result.cache
+/public/build
+/storage/pail
+auth.json

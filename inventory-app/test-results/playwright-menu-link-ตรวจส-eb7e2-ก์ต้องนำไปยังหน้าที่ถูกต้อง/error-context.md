@@ -1,0 +1,119 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - list [ref=e4]:
+      - listitem [ref=e5]:
+        - link "" [ref=e6] [cursor=pointer]:
+          - /url: http://localhost:8000/admin/notifications
+          - generic [ref=e7] [cursor=pointer]: 
+      - listitem [ref=e8]:
+        - button "ออกจากระบบ" [ref=e10] [cursor=pointer]
+  - complementary [ref=e11]:
+    - link "Inventory App" [ref=e12] [cursor=pointer]:
+      - /url: http://localhost:8000/admin/dashboard
+      - generic [ref=e13] [cursor=pointer]: Inventory App
+    - navigation [ref=e15]:
+      - menu [ref=e16]:
+        - listitem [ref=e17]:
+          - link " แดชบอร์ด" [ref=e18] [cursor=pointer]:
+            - /url: http://localhost:8000/admin/dashboard
+            - generic [ref=e19] [cursor=pointer]: 
+            - paragraph [ref=e20] [cursor=pointer]: แดชบอร์ด
+        - listitem [ref=e21]:
+          - link " การแจ้งเตือน" [ref=e22] [cursor=pointer]:
+            - /url: http://localhost:8000/admin/notifications
+            - generic [ref=e23] [cursor=pointer]: 
+            - paragraph [ref=e24] [cursor=pointer]: การแจ้งเตือน
+        - listitem [ref=e25]:
+          - link " สินค้า" [ref=e26] [cursor=pointer]:
+            - /url: http://localhost:8000/admin/products
+            - generic [ref=e27] [cursor=pointer]: 
+            - paragraph [ref=e28] [cursor=pointer]: สินค้า
+        - listitem [ref=e29]:
+          - link " หมวดหมู่" [ref=e30] [cursor=pointer]:
+            - /url: http://localhost:8000/admin/categories
+            - generic [ref=e31] [cursor=pointer]: 
+            - paragraph [ref=e32] [cursor=pointer]: หมวดหมู่
+        - listitem [ref=e33]:
+          - link " เคลื่อนไหวสต็อก" [ref=e34] [cursor=pointer]:
+            - /url: http://localhost:8000/admin/movements
+            - generic [ref=e35] [cursor=pointer]: 
+            - paragraph [ref=e36] [cursor=pointer]: เคลื่อนไหวสต็อก
+        - listitem [ref=e37]:
+          - link " นำเข้าไฟล์" [ref=e38] [cursor=pointer]:
+            - /url: http://localhost:8000/admin/import
+            - generic [ref=e39] [cursor=pointer]: 
+            - paragraph [ref=e40] [cursor=pointer]: นำเข้าไฟล์
+        - listitem [ref=e41]:
+          - link " ตั้งค่าระบบ" [ref=e42] [cursor=pointer]:
+            - /url: http://localhost:8000/admin/settings
+            - generic [ref=e43] [cursor=pointer]: 
+            - paragraph [ref=e44] [cursor=pointer]: ตั้งค่าระบบ
+        - listitem [ref=e45]:
+          - link " สำรองข้อมูล" [ref=e46] [cursor=pointer]:
+            - /url: http://localhost:8000/admin/backup
+            - generic [ref=e47] [cursor=pointer]: 
+            - paragraph [ref=e48] [cursor=pointer]: สำรองข้อมูล
+        - listitem [ref=e49]:
+          - link " บันทึกกิจกรรม" [ref=e50] [cursor=pointer]:
+            - /url: http://localhost:8000/admin/audit-log
+            - generic [ref=e51] [cursor=pointer]: 
+            - paragraph [ref=e52] [cursor=pointer]: บันทึกกิจกรรม
+        - listitem [ref=e53]:
+          - link " รายงาน" [ref=e54] [cursor=pointer]:
+            - /url: http://localhost:8000/admin/reports
+            - generic [ref=e55] [cursor=pointer]: 
+            - paragraph [ref=e56] [cursor=pointer]: รายงาน
+  - generic [ref=e57]:
+    - generic [ref=e59]:
+      - generic [ref=e60]:
+        - heading "แดชบอร์ดภาพรวม" [level=1] [ref=e62]
+        - list [ref=e64]:
+          - listitem [ref=e65]: แดชบอร์ด
+      - alert [ref=e66]: ยินดีต้อนรับกลับเข้าสู่ระบบ
+    - generic [ref=e68]:
+      - generic [ref=e69]:
+        - generic [ref=e71]:
+          - generic [ref=e72]:
+            - heading "ใกล้หมดอายุ" [level=3] [ref=e73]
+            - button "ภายใน 30 วัน" [ref=e75] [cursor=pointer]
+          - generic [ref=e76]:
+            - generic [ref=e77]:
+              - generic [ref=e78]: "0"
+              - link "ดูสินค้า" [ref=e79] [cursor=pointer]:
+                - /url: http://localhost:8000/admin/products?expiring=30
+            - paragraph [ref=e80]: สินค้าใกล้หมดอายุภายใน 30 วัน
+        - generic [ref=e82]:
+          - heading "สต็อกต่ำกว่าจุดสั่งซื้อซ้ำ" [level=3] [ref=e84]
+          - generic [ref=e85]:
+            - generic [ref=e86]:
+              - generic [ref=e87]: "3"
+              - link "ดูสินค้า" [ref=e88] [cursor=pointer]:
+                - /url: http://localhost:8000/admin/products?low_stock=1
+            - paragraph [ref=e89]: รายการที่ควรเติมสต็อกโดยด่วน
+        - generic [ref=e91]:
+          - heading "มูลค่าสต็อกตามราคาทุนรวม" [level=3] [ref=e93]
+          - generic [ref=e94]:
+            - generic [ref=e95]: ๒,๕๘๓.๐๐
+            - paragraph [ref=e96]: คิดจากปริมาณคงเหลือ x ราคาทุน
+      - generic [ref=e97]:
+        - generic [ref=e98]:
+          - heading "รายการอัปเดตล่าสุด" [level=3] [ref=e99]
+          - link "ไปหน้ารายการทั้งหมด" [ref=e100] [cursor=pointer]:
+            - /url: http://localhost:8000/admin/movements
+        - table [ref=e103]:
+          - rowgroup [ref=e104]:
+            - row "วันที่/เวลา สินค้า ประเภท จำนวน ผู้ปฏิบัติ" [ref=e105]:
+              - cell "วันที่/เวลา" [ref=e106]
+              - cell "สินค้า" [ref=e107]
+              - cell "ประเภท" [ref=e108]
+              - cell "จำนวน" [ref=e109]
+              - cell "ผู้ปฏิบัติ" [ref=e110]
+          - rowgroup [ref=e111]:
+            - row "ยังไม่มีบันทึกการเคลื่อนไหว" [ref=e112]:
+              - cell "ยังไม่มีบันทึกการเคลื่อนไหว" [ref=e113]
+  - contentinfo [ref=e114]:
+    - strong [ref=e115]: ระบบคลังสินค้า (Phase 3)
+```
