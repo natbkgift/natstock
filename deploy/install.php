@@ -8,9 +8,10 @@ function info($msg) { echo '<div>'.htmlentities($msg)."</div>"; }
 function err($msg) { echo '<div style="color:red">'.htmlentities($msg)."</div>"; }
 
 // Locate the Laravel app root relative to this script
+// Prefer a sibling folder first (most shared hosts place app under the webroot)
 $candidates = [
-    __DIR__ . '/../natstock', // when this lives in public_html/
     __DIR__ . '/natstock',    // when this lives in document root
+    __DIR__ . '/../natstock', // when app is one level above public_html/
 ];
 
 // Fallback: scan nearby directories for a folder that contains bootstrap/app.php
@@ -85,6 +86,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !is_file($appRoot.'/.env')) {
     if (!preg_grep('/^APP_DEBUG=/', $pairs)) $pairs[] = 'APP_DEBUG=false';
     file_put_contents($appRoot.'/.env', implode("\n", $pairs)."\n");
     info('.env created');
+}
+
+// Ensure vendor exists before bootstrapping
+if (!is_file($appRoot . '/vendor/autoload.php')) {
+    err('Missing vendor/autoload.php at: ' . $appRoot . '/vendor/autoload.php');
+    info('This usually means the extraction did not complete or the deployment package did not include vendor files.');
+    echo '<ul style="margin:6px 0 12px">';
+    echo '<li>Re-upload all deployment parts (e.g. natstock-cpanel.zip or natstock-cpanel.part00.txt .. partNN.txt) to the same folder as this file.</li>';
+    echo '<li>Open <code>/extract.php</code> and let it reach 100% (it auto-continues). Then reload this page.</li>';
+    echo '<li>After extraction, you should see a <code>natstock/</code> folder here with <code>bootstrap/app.php</code> and <code>vendor/autoload.php</code>.</li>';
+    echo '</ul>';
+    if (is_dir($appRoot)) {
+        // Print a small directory peek for debugging
+        $peek = array_slice(array_values(array_filter(scandir($appRoot) ?: [], function($x){return $x!=='.' && $x!=='..';})), 0, 10);
+        info('Found app folder at: ' . $appRoot);
+        if ($peek) {
+            echo '<div>Top-level entries: '.htmlentities(implode(', ', $peek)).'</div>';
+        }
+    }
+    exit;
 }
 
 // Bootstrap Laravel
