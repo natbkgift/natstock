@@ -15,7 +15,7 @@
 - [ ] ตรวจ `php artisan config:get queue.default` ต้องไม่ใช่ `sync`
 
 ## Scheduler / Cron
- - [ ] รัน `crontab -l` บนเซิร์ฟเวอร์ ต้องมี `* * * * * php /path/to/project/artisan schedule:run >> /dev/null 2>&1` (หรือเทียบเท่า, แนะนำให้ใช้ absolute path) เพื่อลด cron mail
+- [ ] รัน `crontab -l` บนเซิร์ฟเวอร์ ต้องมี `* * * * * php /path/to/artisan schedule:run`
 - [ ] ทดสอบ `php artisan inventory:scan-alerts` manual แล้วดู log ว่า success
 - [ ] ตรวจ log cron (`/var/log/cron` หรือ systemd timer) ว่ามีรันในรอบ 24 ชม.
 
