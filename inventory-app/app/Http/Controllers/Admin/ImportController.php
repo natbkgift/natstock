@@ -75,14 +75,33 @@ class ImportController extends Controller
         ]);
     }
 
-    public function downloadErrors(string $token)
+    public function downloadErrors(Request $request, string $token)
     {
+        if (! $request->hasValidSignature()) {
+            abort(403, 'ลิงก์ดาวน์โหลดหมดอายุหรือไม่ถูกต้อง');
+        }
+
         $path = $this->service->resolveErrorFilePath($token);
 
         if (!is_file($path)) {
-            throw new RuntimeException('ไม่พบไฟล์ข้อผิดพลาดสำหรับดาวน์โหลด');
+            abort(404, 'ไม่พบไฟล์ข้อผิดพลาดสำหรับดาวน์โหลด');
         }
 
         return response()->download($path, 'error.csv');
+    }
+
+    // Back-compat: support /import/errors/download?token=... signed URL
+    public function downloadErrorsLegacy(Request $request)
+    {
+        if (! $request->hasValidSignature()) {
+            abort(403, 'ลิงก์ดาวน์โหลดหมดอายุหรือไม่ถูกต้อง');
+        }
+
+        $token = (string) $request->query('token', '');
+        if ($token === '') {
+            abort(404, 'ไม่พบไฟล์ข้อผิดพลาดสำหรับดาวน์โหลด');
+        }
+
+        return $this->downloadErrors($request, $token);
     }
 }

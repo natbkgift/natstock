@@ -3,6 +3,9 @@
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
 
+// Installer version marker (helps verify latest file is deployed)
+define('NATSTOCK_INSTALLER_VERSION', '2025-10-02.2');
+
 function ok($msg) { echo '<div style="color:green">'.htmlentities($msg)."</div>"; }
 function info($msg) { echo '<div>'.htmlentities($msg)."</div>"; }
 function err($msg) { echo '<div style="color:red">'.htmlentities($msg)."</div>"; }
@@ -114,12 +117,19 @@ $app = require $appRoot . '/bootstrap/app.php';
 
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schema;
 
 $kernel = $app->make(ConsoleKernel::class);
 $kernel->bootstrap();
 
 try {
     chdir($appRoot);
+
+    // Ensure compatibility with older MySQL versions on shared hosts
+    // to avoid: SQLSTATE[42000]: 1071 Specified key was too long
+    if (class_exists(Schema::class)) {
+        try { Schema::defaultStringLength(191); } catch (Throwable $__) {}
+    }
 
     if (!file_exists($appRoot.'/.env')) {
         if (file_exists($appRoot.'/.env.example')) {

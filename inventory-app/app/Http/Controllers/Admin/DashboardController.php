@@ -31,14 +31,13 @@ class DashboardController extends Controller
         $expiringCountsResult = Product::query()
             ->whereNotNull('expire_date')
             ->selectRaw(
-                'SUM(CASE WHEN expire_date BETWEEN :today AND :d30 THEN 1 ELSE 0 END) as expiring_30,
-                  SUM(CASE WHEN expire_date BETWEEN :today AND :d60 THEN 1 ELSE 0 END) as expiring_60,
-                  SUM(CASE WHEN expire_date BETWEEN :today AND :d90 THEN 1 ELSE 0 END) as expiring_90',
+                'SUM(CASE WHEN expire_date BETWEEN ? AND ? THEN 1 ELSE 0 END) as expiring_30,
+                  SUM(CASE WHEN expire_date BETWEEN ? AND ? THEN 1 ELSE 0 END) as expiring_60,
+                  SUM(CASE WHEN expire_date BETWEEN ? AND ? THEN 1 ELSE 0 END) as expiring_90',
                 [
-                    'today' => $today->toDateString(),
-                    'd30' => $expiringBoundaries[30]->toDateString(),
-                    'd60' => $expiringBoundaries[60]->toDateString(),
-                    'd90' => $expiringBoundaries[90]->toDateString(),
+                    $today->toDateString(), $expiringBoundaries[30]->toDateString(),
+                    $today->toDateString(), $expiringBoundaries[60]->toDateString(),
+                    $today->toDateString(), $expiringBoundaries[90]->toDateString(),
                 ]
             )
             ->first();

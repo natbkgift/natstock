@@ -2,18 +2,26 @@
 
 namespace App\Logging;
 
-use Monolog\Logger;
+use Illuminate\Log\Logger as IlluminateLogger;
 
 class MaskSensitiveData
 {
-    public function __invoke(Logger $logger): void
+    public function __invoke(IlluminateLogger $logger): void
     {
-        $logger->pushProcessor(function (array $record) {
-            $record['context'] = $this->maskContext($record['context'] ?? []);
-            $record['extra'] = $this->maskContext($record['extra'] ?? []);
+        // Push the processor into the underlying Monolog logger when available
+        $underlying = $logger->getLogger();
+        if ($underlying instanceof \Monolog\Logger) {
+            $underlying->pushProcessor(function (array $record) {
+                $record['context'] = $this->maskContext($record['context'] ?? []);
+                $record['extra'] = $this->maskContext($record['extra'] ?? []);
 
-            return $record;
-        });
+                return $record;
+            });
+            return;
+        }
+
+        // Fallback: if pushProcessor isn't available, attempt context masking via context array
+        $logger->withContext($this->maskContext([]));
     }
 
     private function maskContext(array $context): array

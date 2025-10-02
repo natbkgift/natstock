@@ -9,6 +9,12 @@
     <style>
         body { font-family: 'Sarabun', 'Prompt', sans-serif; }
         .content-header h1 { font-size: 1.6rem; }
+        /* Prevent oversized SVG icons (e.g., pagination chevrons) */
+        .content-wrapper svg {
+            width: 1em;
+            height: 1em;
+        }
+        .content-wrapper .page-link svg { vertical-align: -0.125em; }
         .select2-container--bootstrap4 .select2-selection--single {
             height: 38px;
             padding: 0.375rem 0.75rem;

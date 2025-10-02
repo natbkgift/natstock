@@ -51,8 +51,12 @@ class NotificationTestService
         if (in_array('email', $channels, true)) {
             $emails = $this->settings->getNotifyEmails();
             if (! empty($emails)) {
-                Mail::to($emails)->send(InventoryDailySummaryMail::forTest($summary));
-                $sentChannels[] = config('inventory.notify_channel_options.email');
+                try {
+                    Mail::to($emails)->send(InventoryDailySummaryMail::forTest($summary));
+                    $sentChannels[] = config('inventory.notify_channel_options.email');
+                } catch (\Throwable $e) {
+                    Log::channel('daily')->error('ส่งอีเมลทดสอบล้มเหลว', ['error' => $e->getMessage()]);
+                }
             } else {
                 Log::channel('daily')->warning('ไม่สามารถส่งอีเมลทดสอบได้เนื่องจากไม่มีอีเมลปลายทาง');
             }

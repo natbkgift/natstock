@@ -10,7 +10,10 @@ class AuditController extends Controller
 {
     public function index()
     {
-        $activities = Activity::latest()->paginate(20);
+        $activities = Activity::query()
+            ->with('actor')
+            ->orderByDesc('happened_at')
+            ->paginate(20);
         return view('admin.audit.index', compact('activities'));
     }
 }

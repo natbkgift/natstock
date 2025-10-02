@@ -16,6 +16,10 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return redirect()->route('login');
 });
+    // Lightweight health endpoint (does not require auth)
+    Route::get('/ping', function () {
+        return response()->json(['ok' => true, 'time' => now()->toIso8601String()]);
+    });
 
 Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
     // Dashboard
@@ -29,25 +33,53 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
     // Movements
     Route::resource('movements', MovementController::class)->only(['index']);
+    Route::get('movements/products/search', [MovementController::class, 'searchProducts'])->name('movements.products.search');
+    Route::post('movements/store-in', [MovementController::class, 'storeIn'])->name('movements.store.in');
+    Route::post('movements/store-out', [MovementController::class, 'storeOut'])->name('movements.store.out');
+    Route::post('movements/store-adjust', [MovementController::class, 'storeAdjust'])->name('movements.store.adjust');
 
     // Import
     Route::get('import', [ImportController::class, 'index'])->name('import.index');
-    Route::post('import', [ImportController::class, 'store'])->name('import.store');
-    Route::get('import/errors/download', [ImportController::class, 'downloadErrors'])->name('import.errors.download');
+    Route::post('import/preview', [ImportController::class, 'preview'])->name('import.preview');
+    Route::post('import/commit', [ImportController::class, 'commit'])->name('import.commit');
+    // Back-compat: legacy link used query parameter ?token=... (keep working for existing links)
+    Route::get('import/errors/download', [ImportController::class, 'downloadErrorsLegacy'])
+        ->middleware('signed')
+        ->name('import.errors.download.legacy');
+    Route::get('import/errors/download/{token}', [ImportController::class, 'downloadErrors'])
+        ->middleware('signed')
+        ->name('import.errors.download');
 
     // Notifications
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('notifications/mark-all', [NotificationController::class, 'markAll'])->name('notifications.mark-all');
+    Route::post('notifications/{id}/mark-as-read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-as-read');
 
     // User Management (Admin only)
     Route::middleware('can:access-admin')->group(function () {
         Route::resource('users', UserController::class)->except(['show']);
-        Route::resource('settings', SettingController::class)->only(['index', 'store']);
-        Route::resource('backup', BackupController::class)->only(['index', 'store', 'destroy']);
+        // Settings
+        Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
+        Route::post('settings', [SettingController::class, 'update'])->name('settings.update');
+    Route::post('settings/test-notification', [SettingController::class, 'testNotification'])->name('settings.test-notification');
+    // Allow GET trigger for admins (useful when accessing URL directly)
+    Route::get('settings/test-notification', [SettingController::class, 'testNotificationGet'])->name('settings.test-notification.get');
+    Route::post('settings/run-scan', [SettingController::class, 'runScan'])->name('settings.run-scan');
+    // Allow GET trigger for admins (useful when accessing URL directly)
+    Route::get('settings/run-scan', [SettingController::class, 'runScan'])->name('settings.run-scan.get');
+        // Backup (index + create and explicit download)
+        Route::resource('backup', BackupController::class)->only(['index', 'store']);
+        Route::get('backup/{filename}/download', [BackupController::class, 'download'])
+            ->where('filename', '.*')
+            ->name('backup.download');
         Route::resource('audit', AuditController::class)->only(['index']);
     });
 
     // Reports
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('reports/expiring', [ReportController::class, 'expiring'])->name('reports.expiring');
+    Route::get('reports/low-stock', [ReportController::class, 'lowStock'])->name('reports.low-stock');
+    Route::get('reports/valuation', [ReportController::class, 'valuation'])->name('reports.valuation');
 });
 
 require __DIR__.'/auth.php';

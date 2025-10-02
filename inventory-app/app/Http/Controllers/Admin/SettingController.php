@@ -91,6 +91,12 @@ class SettingController extends Controller
         return redirect()->route('admin.settings.index')->with($result['status'], $result['message']);
     }
 
+    // Optional GET endpoint to trigger test notification when accessed via URL directly
+    public function testNotificationGet(Request $request): RedirectResponse
+    {
+        return $this->testNotification($request);
+    }
+
     public function runScan(Request $request): RedirectResponse
     {
         Gate::authorize('access-admin');

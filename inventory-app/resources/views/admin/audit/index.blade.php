@@ -26,14 +26,15 @@
                 <tbody>
                     @forelse($activities as $activity)
                         <tr>
-                            <td>{{ $activity->created_at->format('d/m/Y H:i') }}</td>
-                            <td>{{ optional($activity->causer)->name ?? 'N/A' }}</td>
+                            <td>{{ ($activity->happened_at ?? $activity->created_at)?->format('d/m/Y H:i') }}</td>
+                            <td>{{ $activity->actor->name ?? 'N/A' }}</td>
                             <td>{{ $activity->description }}</td>
                             <td>
-                                @if($activity->properties->count())
+                                @php $props = $activity->properties ?? []; @endphp
+                                @if(is_array($props) && count($props))
                                     <ul>
-                                        @foreach($activity->properties as $key => $value)
-                                            <li><strong>{{ $key }}:</strong> {{ is_array($value) ? json_encode($value) : $value }}</li>
+                                        @foreach($props as $key => $value)
+                                            <li><strong>{{ $key }}:</strong> {{ is_array($value) ? json_encode($value) : (string) $value }}</li>
                                         @endforeach
                                     </ul>
                                 @else
