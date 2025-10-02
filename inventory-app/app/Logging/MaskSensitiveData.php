@@ -14,15 +14,25 @@ class MaskSensitiveData
         $underlying = $logger->getLogger();
         if ($underlying instanceof MonologLogger) {
             $underlying->pushProcessor(function (array|LogRecord $record) {
-                if ($record instanceof LogRecord) {
-                    $maskedContext = $this->maskContext($record->context ?? []);
-                    $maskedExtra = $this->maskContext($record->extra ?? []);
+                $contextData = $record instanceof LogRecord
+                    ? ($record->context ?? [])
+                    : ($record['context'] ?? []);
+                $extraData = $record instanceof LogRecord
+                    ? ($record->extra ?? [])
+                    : ($record['extra'] ?? []);
 
+                $context = is_array($contextData) ? $contextData : [];
+                $extra = is_array($extraData) ? $extraData : [];
+
+                $maskedContext = $this->maskContext($context);
+                $maskedExtra = $this->maskContext($extra);
+
+                if ($record instanceof LogRecord) {
                     return $record->with(context: $maskedContext, extra: $maskedExtra);
                 }
 
-                $record['context'] = $this->maskContext($record['context'] ?? []);
-                $record['extra'] = $this->maskContext($record['extra'] ?? []);
+                $record['context'] = $maskedContext;
+                $record['extra'] = $maskedExtra;
 
                 return $record;
             });
