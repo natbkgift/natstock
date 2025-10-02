@@ -32,9 +32,7 @@
 ## 6. Backup & Restore (เฉพาะรอบทดสอบรายสัปดาห์)
 1. รัน `php artisan inventory:backup` ผ่าน SSH หรือปุ่มในหน้า Backup
 2. ดาวน์โหลดไฟล์ zip ล่าสุด, ตรวจขนาดไฟล์ > 0 และมี `database.json`, `meta.json`, `files/`
-3. บนเครื่อง staging แตกไฟล์ → ใช้สคริปต์ staging เพื่อนำ `database.json` เข้าไปยังฐานทดสอบชั่วคราว
-   (เช่น `php artisan inventory:json-verify /path/to/database.json`) เพื่อตรวจยอดเรคคอร์ด/ความครบถ้วน แล้วล้างฐานทดสอบเมื่อเสร็จ
-> หมายเหตุ: วิธีนี้ตรวจเฉพาะ snapshot แบบ JSON — ตาม issue `prod-audit-backup` ควรวางแผนเพิ่มการสำรองแบบ SQL dump เพื่อให้กู้คืนได้เต็มรูปแบบ
+3. บนเครื่อง staging แตกไฟล์และนำ `database.json` ไป insert ชั่วคราวเพื่อตรวจความครบถ้วน (ใช้สคริปต์เฉพาะ staging)
 
 ## 7. Log & Queue
 1. ตรวจ `storage/logs/laravel-*.log` ว่า timestamp ล่าสุดเป็น Asia/Bangkok
