@@ -14,27 +14,10 @@ class MaskSensitiveData
         $underlying = $logger->getLogger();
         if ($underlying instanceof MonologLogger) {
             $underlying->pushProcessor(function (array|LogRecord $record) {
-                $contextData = $record instanceof LogRecord
-                    ? ($record->context ?? [])
-                    : ($record['context'] ?? []);
-                $extraData = $record instanceof LogRecord
-                    ? ($record->extra ?? [])
-                    : ($record['extra'] ?? []);
+                $context = $this->maskContext($this->extractRecordData($record, 'context'));
+                $extra = $this->maskContext($this->extractRecordData($record, 'extra'));
 
-                $context = is_array($contextData) ? $contextData : [];
-                $extra = is_array($extraData) ? $extraData : [];
-
-                $maskedContext = $this->maskContext($context);
-                $maskedExtra = $this->maskContext($extra);
-
-                if ($record instanceof LogRecord) {
-                    return $record->with(context: $maskedContext, extra: $maskedExtra);
-                }
-
-                $record['context'] = $maskedContext;
-                $record['extra'] = $maskedExtra;
-
-                return $record;
+                return $this->applyMaskedData($record, $context, $extra);
             });
             return;
         }
@@ -70,5 +53,32 @@ class MaskSensitiveData
             || str_contains(strtolower($key), 'password')
             || str_contains(strtolower($key), 'secret')
             || str_contains(strtolower($key), 'key');
+    }
+
+    /**
+     * @param array|LogRecord $record
+     */
+    private function extractRecordData(array|LogRecord $record, string $key): array
+    {
+        $value = $record instanceof LogRecord
+            ? ($record->{$key} ?? [])
+            : ($record[$key] ?? []);
+
+        return is_array($value) ? $value : [];
+    }
+
+    /**
+     * @param array|LogRecord $record
+     */
+    private function applyMaskedData(array|LogRecord $record, array $context, array $extra): array|LogRecord
+    {
+        if ($record instanceof LogRecord) {
+            return $record->with(context: $context, extra: $extra);
+        }
+
+        $record['context'] = $context;
+        $record['extra'] = $extra;
+
+        return $record;
     }
 }
