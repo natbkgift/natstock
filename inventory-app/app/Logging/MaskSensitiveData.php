@@ -3,6 +3,8 @@
 namespace App\Logging;
 
 use Illuminate\Log\Logger as IlluminateLogger;
+use Monolog\Logger as MonologLogger;
+use Monolog\LogRecord;
 
 class MaskSensitiveData
 {
@@ -10,8 +12,15 @@ class MaskSensitiveData
     {
         // Push the processor into the underlying Monolog logger when available
         $underlying = $logger->getLogger();
-        if ($underlying instanceof \Monolog\Logger) {
-            $underlying->pushProcessor(function (array $record) {
+        if ($underlying instanceof MonologLogger) {
+            $underlying->pushProcessor(function (array|LogRecord $record) {
+                if ($record instanceof LogRecord) {
+                    $maskedContext = $this->maskContext($record->context ?? []);
+                    $maskedExtra = $this->maskContext($record->extra ?? []);
+
+                    return $record->with(context: $maskedContext, extra: $maskedExtra);
+                }
+
                 $record['context'] = $this->maskContext($record['context'] ?? []);
                 $record['extra'] = $this->maskContext($record['extra'] ?? []);
 
