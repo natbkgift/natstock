@@ -12,6 +12,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class SettingController extends Controller
 {
@@ -101,7 +103,17 @@ class SettingController extends Controller
     {
         Gate::authorize('access-admin');
 
-        Artisan::call('inventory:scan-alerts');
+        try {
+            Artisan::call('inventory:scan-alerts');
+        } catch (Throwable $exception) {
+            Log::error('ไม่สามารถเรียกใช้คำสั่งสแกนแจ้งเตือนได้', [
+                'error' => $exception->getMessage(),
+            ]);
+
+            return redirect()
+                ->route('admin.settings.index')
+                ->with('error', 'ไม่สามารถดำเนินการสแกนแจ้งเตือนประจำวันได้ กรุณาลองใหม่อีกครั้ง');
+        }
 
         $this->auditLogger->log(
             'alerts.scan_manual',
