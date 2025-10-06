@@ -33,17 +33,32 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card card-outline card-success h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h3 class="card-title mb-0">รายงานมูลค่าสต็อก</h3>
-                <i class="fas fa-coins text-success"></i>
-            </div>
-            <div class="card-body">
-                <p class="mb-2">สรุปมูลค่าสินค้าคงคลังแบบเรียลไทม์ พร้อมยอดรวมเพื่อใช้ในการวางแผนการเงิน.</p>
-                <a href="{{ route('admin.reports.valuation') }}" class="btn btn-success btn-block">เปิดรายงาน</a>
+    @if($pricingEnabled ?? config('inventory.enable_price'))
+        <div class="col-md-4">
+            <div class="card card-outline card-success h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">รายงานมูลค่าสต็อก</h3>
+                    <i class="fas fa-coins text-success"></i>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">สรุปมูลค่าสินค้าคงคลังแบบเรียลไทม์ พร้อมยอดรวมเพื่อใช้ในการวางแผนการเงิน.</p>
+                    <a href="{{ route('admin.reports.valuation') }}" class="btn btn-success btn-block">เปิดรายงาน</a>
+                </div>
             </div>
         </div>
-    </div>
+    @else
+        <div class="col-md-4">
+            <div class="card card-outline card-secondary h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">รายงานมูลค่าสต็อก</h3>
+                    <i class="fas fa-lock text-secondary"></i>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2 text-muted">ระบบนี้ปิดการใช้งานราคาทุน/ราคาขาย รายงานมูลค่าสต็อกจึงถูกซ่อนไว้ชั่วคราว</p>
+                    <button class="btn btn-secondary btn-block" disabled>ปิดใช้งาน</button>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>
 @endsection

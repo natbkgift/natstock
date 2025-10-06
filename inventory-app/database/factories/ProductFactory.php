@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 
 class ProductFactory extends Factory
 {
-    protected string $model = Product::class;
+    protected $model = Product::class;
 
     private static int $sequence = 1;
 

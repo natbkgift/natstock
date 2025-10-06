@@ -22,6 +22,11 @@
     <strong>โหมดซ้ำ:</strong> {{ $summary['duplicate_mode'] === 'UPSERT' ? 'UPSERT - ปรับปรุงข้อมูล' : 'SKIP - ข้ามแถวซ้ำ' }}<br>
     <strong>สร้างหมวดหมู่อัตโนมัติ:</strong> {{ $summary['auto_create_category'] ? 'เปิดใช้งาน' : 'ปิด' }}
 </div>
+@if(!empty($summary['price_columns_ignored']))
+    <div class="alert alert-warning">
+        คอลัมน์ราคาในไฟล์ถูกข้ามโดยอัตโนมัติ เนื่องจากระบบปิดการใช้งานราคาทุน/ราคาขายอยู่ในขณะนี้
+    </div>
+@endif
 
 <div class="card shadow-sm mb-4">
     <div class="card-body">

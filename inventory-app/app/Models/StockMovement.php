@@ -11,6 +11,7 @@ class StockMovement extends Model
     use HasFactory;
 
     protected $fillable = [
+        'batch_id',
         'product_id',
         'type',
         'qty',
@@ -32,6 +33,12 @@ class StockMovement extends Model
     public function actor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'actor_id');
+    }
+
+    public function batch(): BelongsTo
+    {
+        // ผูก movement กับ lot เฉพาะที่เลือกไว้ (ถ้าไม่มีให้เป็น null ได้)
+        return $this->belongsTo(ProductBatch::class, 'batch_id');
     }
 
     public function getFormattedQtyAttribute(): string

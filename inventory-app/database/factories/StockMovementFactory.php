@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 
 class StockMovementFactory extends Factory
 {
-    protected string $model = StockMovement::class;
+    protected $model = StockMovement::class;
 
     private static int $sequence = 1;
 

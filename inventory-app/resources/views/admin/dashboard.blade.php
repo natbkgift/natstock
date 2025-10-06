@@ -59,8 +59,13 @@
                 <h3 class="card-title mb-0">มูลค่าสต็อกตามราคาทุนรวม</h3>
             </div>
             <div class="card-body">
-                <div class="display-4 text-success mb-2">{{ $stockValueFormatted }}</div>
-                <p class="text-muted mb-0">คิดจากปริมาณคงเหลือ x ราคาทุน</p>
+                @if($pricingEnabled)
+                    <div class="display-4 text-success mb-2">{{ $stockValueFormatted }}</div>
+                    <p class="text-muted mb-0">คิดจากปริมาณคงเหลือ x ราคาทุน</p>
+                @else
+                    <div class="display-4 text-muted mb-2"><i class="fas fa-lock"></i></div>
+                    <p class="text-muted mb-0">ระบบนี้ปิดการใช้งานราคาทุน/ราคาขายแล้ว</p>
+                @endif
             </div>
         </div>
     </div>

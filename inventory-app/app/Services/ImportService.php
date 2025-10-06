@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\User;
+use App\Support\PriceGuard;
 use Carbon\Carbon;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +33,11 @@ class ImportService
 
     private const CHUNK_SIZE = 500;
 
+    private const PRICE_COLUMNS = ['cost_price', 'sale_price'];
+
     private readonly string $storagePath;
+
+    private bool $priceColumnsDetected = false;
 
     public function __construct()
     {
@@ -53,6 +58,8 @@ class ImportService
             'duplicate_mode' => $duplicateMode,
             'auto_create_category' => $autoCreateCategory,
         ];
+
+        $this->priceColumnsDetected = false;
 
         if ($uploadedFile === null) {
             return [
@@ -116,6 +123,10 @@ class ImportService
 
         $canCommit = $fileError === null && $summary['total_rows'] > 0 && $summary['error_rows'] === 0;
 
+        if (!config('inventory.enable_price') && $this->priceColumnsDetected) {
+            $summary['price_columns_ignored'] = true;
+        }
+
         return [
             'summary' => $summary,
             'preview_rows' => $previewRows,
@@ -132,6 +143,8 @@ class ImportService
     {
         $filePath = $this->resolveStoredPath($fileToken);
         $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+
+        $this->priceColumnsDetected = false;
 
         $summary = [
             'created' => 0,
@@ -218,6 +231,7 @@ class ImportService
     {
         $errors = [];
         $normalized = [];
+        $pricingEnabled = (bool) config('inventory.enable_price');
 
         $sku = trim((string) ($row['sku'] ?? ''));
         if ($sku === '') {
@@ -249,18 +263,23 @@ class ImportService
             $normalized['qty'] = (int) round($qtyRaw);
         }
 
-        $costRaw = $this->normalizeNumeric($row['cost_price'] ?? null, 2);
-        if ($costRaw === null || $costRaw < 0) {
-            $errors[] = 'cost_price: ต้องเป็นตัวเลขและมากกว่าหรือเท่ากับ 0';
-        } else {
-            $normalized['cost_price'] = number_format($costRaw, 2, '.', '');
-        }
+        if ($pricingEnabled) {
+            $costRaw = $this->normalizeNumeric($row['cost_price'] ?? null, 2);
+            if ($costRaw === null || $costRaw < 0) {
+                $errors[] = 'cost_price: ต้องเป็นตัวเลขและมากกว่าหรือเท่ากับ 0';
+            } else {
+                $normalized['cost_price'] = number_format($costRaw, 2, '.', '');
+            }
 
-        $saleRaw = $this->normalizeNumeric($row['sale_price'] ?? null, 2);
-        if ($saleRaw !== null && $saleRaw < 0) {
-            $errors[] = 'sale_price: ต้องเป็นตัวเลขและมากกว่าหรือเท่ากับ 0';
+            $saleRaw = $this->normalizeNumeric($row['sale_price'] ?? null, 2);
+            if ($saleRaw !== null && $saleRaw < 0) {
+                $errors[] = 'sale_price: ต้องเป็นตัวเลขและมากกว่าหรือเท่ากับ 0';
+            } else {
+                $normalized['sale_price'] = $saleRaw !== null ? number_format($saleRaw, 2, '.', '') : null;
+            }
         } else {
-            $normalized['sale_price'] = $saleRaw !== null ? number_format($saleRaw, 2, '.', '') : null;
+            $normalized['cost_price'] = null;
+            $normalized['sale_price'] = null;
         }
 
         $expire = trim((string) ($row['expire_date'] ?? ''));
@@ -318,18 +337,21 @@ class ImportService
         $product = Product::query()->where('sku', $row['sku'])->first();
 
         if ($product === null) {
-            $product = Product::create([
+            $productData = [
                 'sku' => $row['sku'],
                 'name' => $row['name'],
                 'note' => $row['note'],
                 'category_id' => $category->getKey(),
-                'cost_price' => $row['cost_price'],
-                'sale_price' => $row['sale_price'],
+                'cost_price' => $row['cost_price'] ?? null,
+                'sale_price' => $row['sale_price'] ?? null,
                 'expire_date' => $row['expire_date'],
                 'reorder_point' => $row['reorder_point'],
                 'qty' => $row['qty'],
                 'is_active' => $row['is_active'],
-            ]);
+            ];
+            PriceGuard::strip($productData);
+
+            $product = Product::create($productData);
 
             $this->createMovement($product, 'in', $row['qty'], 'import:create', $actor);
 
@@ -344,17 +366,20 @@ class ImportService
         $newQty = (int) $row['qty'];
         $delta = $newQty - $previousQty;
 
-        $product->update([
+        $updateData = [
             'name' => $row['name'],
             'note' => $row['note'],
             'category_id' => $category->getKey(),
-            'cost_price' => $row['cost_price'],
-            'sale_price' => $row['sale_price'],
+            'cost_price' => $row['cost_price'] ?? null,
+            'sale_price' => $row['sale_price'] ?? null,
             'expire_date' => $row['expire_date'],
             'reorder_point' => $row['reorder_point'],
             'qty' => $newQty,
             'is_active' => $row['is_active'],
-        ]);
+        ];
+        PriceGuard::strip($updateData);
+
+        $product->update($updateData);
 
         if ($delta > 0) {
             $this->createMovement($product, 'in', $delta, $this->buildAdjustNote($delta), $actor);
@@ -418,6 +443,11 @@ class ImportService
                 $values = [];
                 foreach (self::TEMPLATE_COLUMNS as $column) {
                     $index = $indexes[$column];
+                    if ($index === null) {
+                        $values[$column] = null;
+                        continue;
+                    }
+
                     $values[$column] = array_key_exists($index, $row) ? trim((string) $row[$index]) : null;
                 }
 
@@ -467,6 +497,11 @@ class ImportService
                 $values = [];
                 foreach (self::TEMPLATE_COLUMNS as $column) {
                     $position = $indexes[$column];
+                    if ($position === null) {
+                        $values[$column] = null;
+                        continue;
+                    }
+
                     $values[$column] = array_key_exists($position, $cells) ? trim((string) $cells[$position]) : null;
                 }
 
@@ -488,10 +523,21 @@ class ImportService
         }
 
         $normalized = array_map(fn ($value) => trim((string) $value), $header);
+
+        if (in_array('cost_price', $normalized, true) || in_array('sale_price', $normalized, true)) {
+            $this->priceColumnsDetected = true;
+        }
+
         $missing = array_diff(self::TEMPLATE_COLUMNS, $normalized);
 
         if ($missing !== []) {
-            throw new RuntimeException('หัวคอลัมน์ไม่ครบตามเทมเพลต: ' . implode(', ', $missing));
+            if (!config('inventory.enable_price')) {
+                $missing = array_diff($missing, self::PRICE_COLUMNS);
+            }
+
+            if ($missing !== []) {
+                throw new RuntimeException('หัวคอลัมน์ไม่ครบตามเทมเพลต: ' . implode(', ', $missing));
+            }
         }
 
         return $normalized;
@@ -507,6 +553,11 @@ class ImportService
         foreach (self::TEMPLATE_COLUMNS as $column) {
             $position = array_search($column, $header, true);
             if ($position === false) {
+                if (!config('inventory.enable_price') && in_array($column, self::PRICE_COLUMNS, true)) {
+                    $indexes[$column] = null;
+                    continue;
+                }
+
                 throw new RuntimeException('หัวคอลัมน์ไม่ครบตามเทมเพลต: ' . $column);
             }
             $indexes[$column] = (int) $position;
@@ -616,8 +667,12 @@ class ImportService
         $formatted['name'] = $this->escapeForDisplay($normalized['name'] ?? null);
         $formatted['category'] = $this->escapeForDisplay($normalized['category_name'] ?? null);
         $formatted['qty'] = $normalized['qty'] ?? null;
-        $formatted['cost_price'] = isset($normalized['cost_price']) ? number_format((float) $normalized['cost_price'], 2, '.', '') : null;
-        $formatted['sale_price'] = isset($normalized['sale_price']) && $normalized['sale_price'] !== null ? number_format((float) $normalized['sale_price'], 2, '.', '') : null;
+
+        if (config('inventory.enable_price')) {
+            $formatted['cost_price'] = isset($normalized['cost_price']) ? number_format((float) $normalized['cost_price'], 2, '.', '') : null;
+            $formatted['sale_price'] = isset($normalized['sale_price']) && $normalized['sale_price'] !== null ? number_format((float) $normalized['sale_price'], 2, '.', '') : null;
+        }
+
         $formatted['expire_date'] = isset($normalized['expire_date']) && $normalized['expire_date'] instanceof Carbon ? $normalized['expire_date']->toDateString() : null;
         $formatted['reorder_point'] = $normalized['reorder_point'] ?? null;
         $formatted['note'] = $this->escapeForDisplay($normalized['note'] ?? null);

@@ -2,6 +2,7 @@
 
 namespace App\Console;
 
+use App\Console\Commands\BackfillProductBatches;
 use App\Console\Commands\InventoryBackupCommand;
 use App\Console\Commands\InventoryScanAlertsCommand;
 use App\Support\Settings\SettingManager;
@@ -13,6 +14,7 @@ class Kernel extends ConsoleKernel
     protected $commands = [
         InventoryScanAlertsCommand::class,
         InventoryBackupCommand::class,
+        BackfillProductBatches::class,
     ];
 
     /**

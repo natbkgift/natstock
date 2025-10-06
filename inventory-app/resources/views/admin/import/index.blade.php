@@ -14,14 +14,18 @@
     </div>
     <div class="card-body">
         <p class="text-muted">รองรับไฟล์เข้ารหัส UTF-8 เท่านั้น กรุณาดาวน์โหลดเทมเพลตก่อนกรอกข้อมูลเพื่อป้องกันหัวคอลัมน์ไม่ตรงรูปแบบ</p>
+        @php($pricingEnabled = config('inventory.enable_price'))
         <div class="mb-4 d-flex gap-2 flex-wrap">
-            <a href="{{ asset('templates/product_template.csv') }}" class="btn btn-outline-primary btn-sm" download>
+            <a href="{{ asset($pricingEnabled ? 'templates/product_template.csv' : 'templates/product_template_no_price.csv') }}" class="btn btn-outline-primary btn-sm" download>
                 <i class="fas fa-file-csv mr-1"></i> ดาวน์โหลดเทมเพลต (CSV)
             </a>
-            <a href="{{ asset('templates/product_template.xlsx') }}" class="btn btn-outline-success btn-sm" download>
+            <a href="{{ asset($pricingEnabled ? 'templates/product_template.xlsx' : 'templates/product_template_no_price.xlsx') }}" class="btn btn-outline-success btn-sm" download>
                 <i class="fas fa-file-excel mr-1"></i> ดาวน์โหลดเทมเพลต (XLSX)
             </a>
         </div>
+        @unless($pricingEnabled)
+            <p class="text-muted">ระบบนี้ปิดการใช้งานราคาทุน/ราคาขายแล้ว เทมเพลตจะไม่มีคอลัมน์ราคาด้วย</p>
+        @endunless
         <form action="{{ route('admin.import.preview') }}" method="POST" enctype="multipart/form-data" id="import-form">
             @csrf
             <div class="form-group">

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 
 class CategoryFactory extends Factory
 {
-    protected string $model = Category::class;
+    protected $model = Category::class;
 
     private static int $index = 0;
 

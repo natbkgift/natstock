@@ -32,6 +32,8 @@ test('csv exporter เขียนไฟล์พร้อม BOM และป�
 });
 
 test('คำนวณมูลค่าสต็อกรวมได้ตรงตามจำนวนสินค้า', function (): void {
+    config()->set('inventory.enable_price', true);
+
     $service = new ProductReportService();
     $products = Collection::make([
         new Product(['sku' => 'SKU-A', 'name' => 'สินค้า A', 'cost_price' => '10.00', 'qty' => 5]),
