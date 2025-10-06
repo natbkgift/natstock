@@ -549,7 +549,7 @@
                 return;
             }
 
-            $('#batch-modal-error').addClass('d-none').text('');
+            $('#batch-modal-error').addClass('d-none').html('');
             $('#form-create-batch')[0].reset();
             $('#form-create-batch input[name=product_id]').val(productId);
             $('#form-create-batch input[name=batch_select]').val(batchSelectSelector);
@@ -557,7 +557,7 @@
         });
 
         $('#modal-create-batch').on('hidden.bs.modal', function () {
-            $('#batch-modal-error').addClass('d-none').text('');
+            $('#batch-modal-error').addClass('d-none').html('');
             $('#form-create-batch')[0].reset();
         });
 
@@ -573,7 +573,7 @@
                 note: $form.find('textarea[name=note]').val(),
             };
 
-            $('#batch-modal-error').addClass('d-none').text('');
+            $('#batch-modal-error').addClass('d-none').html('');
 
             $.post(url, payload)
                 .done(response => {
@@ -595,13 +595,13 @@
                     if (xhr.responseJSON && xhr.responseJSON.errors) {
                         const errors = Object.values(xhr.responseJSON.errors).flat();
                         if (errors.length > 0) {
-                            message = errors.join('\n');
+                            message = errors.join('<br>');
                         }
                     } else if (xhr.responseJSON && xhr.responseJSON.message) {
                         message = xhr.responseJSON.message;
                     }
 
-                    $('#batch-modal-error').removeClass('d-none').text(message);
+                    $('#batch-modal-error').removeClass('d-none').html(message);
                 });
         });
     });

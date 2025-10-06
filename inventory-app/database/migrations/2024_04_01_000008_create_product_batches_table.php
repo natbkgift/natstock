@@ -23,7 +23,6 @@ return new class extends Migration
 
             $table->unique(['product_id', 'sub_sku']);
             $table->index('expire_date');
-            $table->index('product_id');
         });
     }
 

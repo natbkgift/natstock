@@ -225,6 +225,25 @@ class MovementController extends Controller
             ->with('status', "ปรับยอดสต็อกเรียบร้อย (Δ{$deltaText})");
     }
 
+    private function parseDate(?string $value): ?Carbon
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromFormat('Y-m-d', $value);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     private function validateInboundOutbound(Request $request): array
     {
         return $request->validate(
