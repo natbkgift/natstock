@@ -3,6 +3,8 @@
 namespace App\Logging;
 
 use Illuminate\Log\Logger as IlluminateLogger;
+use Monolog\Logger as MonologLogger;
+use Monolog\LogRecord;
 
 class MaskSensitiveData
 {
@@ -10,12 +12,12 @@ class MaskSensitiveData
     {
         // Push the processor into the underlying Monolog logger when available
         $underlying = $logger->getLogger();
-        if ($underlying instanceof \Monolog\Logger) {
-            $underlying->pushProcessor(function (array $record) {
-                $record['context'] = $this->maskContext($record['context'] ?? []);
-                $record['extra'] = $this->maskContext($record['extra'] ?? []);
+        if ($underlying instanceof MonologLogger) {
+            $underlying->pushProcessor(function (array|LogRecord $record) {
+                $context = $this->maskContext($this->extractRecordData($record, 'context'));
+                $extra = $this->maskContext($this->extractRecordData($record, 'extra'));
 
-                return $record;
+                return $this->applyMaskedData($record, $context, $extra);
             });
             return;
         }
@@ -51,5 +53,32 @@ class MaskSensitiveData
             || str_contains(strtolower($key), 'password')
             || str_contains(strtolower($key), 'secret')
             || str_contains(strtolower($key), 'key');
+    }
+
+    /**
+     * @param array|LogRecord $record
+     */
+    private function extractRecordData(array|LogRecord $record, string $key): array
+    {
+        $value = $record instanceof LogRecord
+            ? ($record->{$key} ?? [])
+            : ($record[$key] ?? []);
+
+        return is_array($value) ? $value : [];
+    }
+
+    /**
+     * @param array|LogRecord $record
+     */
+    private function applyMaskedData(array|LogRecord $record, array $context, array $extra): array|LogRecord
+    {
+        if ($record instanceof LogRecord) {
+            return $record->with(context: $context, extra: $extra);
+        }
+
+        $record['context'] = $context;
+        $record['extra'] = $extra;
+
+        return $record;
     }
 }

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 
 class UserFactory extends Factory
 {
-    protected string $model = User::class;
+    protected $model = User::class;
 
     private static int $sequence = 1;
 
