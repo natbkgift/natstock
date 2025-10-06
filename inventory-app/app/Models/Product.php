@@ -45,6 +45,35 @@ class Product extends Model
         return $this->hasMany(StockMovement::class);
     }
 
+    public function batches(): HasMany
+    {
+        return $this->hasMany(ProductBatch::class, 'product_id');
+    }
+
+    public function qtyCurrent(): int
+    {
+        // รวมยอดคงเหลือจาก batch ที่เปิดใช้งาน หากยังไม่มี batch ให้ fallback ไปใช้ qty เดิม
+        if ($this->relationLoaded('batches')) {
+            $batches = $this->batches;
+
+            if ($batches->isEmpty()) {
+                return (int) $this->qty;
+            }
+
+            return (int) $batches
+                ->where('is_active', true)
+                ->sum('qty');
+        }
+
+        if (! ProductBatch::where('product_id', $this->id)->exists()) {
+            return (int) $this->qty;
+        }
+
+        return (int) ProductBatch::where('product_id', $this->id)
+            ->where('is_active', true)
+            ->sum('qty');
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
