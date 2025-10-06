@@ -294,7 +294,7 @@ class ReportController extends Controller
 
         return CsvExporter::download(
             $filename,
-            ['รหัสสินค้า', 'ชื่อสินค้า', 'Sub-SKU/ล็อต', 'วันหมดอายุ', 'คงเหลือ', 'หมวดหมู่'],
+            ['sku', 'name', 'sub_sku', 'expire_date', 'qty', 'category'],
             $rows
         );
     }
@@ -318,7 +318,7 @@ class ReportController extends Controller
 
         return CsvExporter::download(
             $filename,
-            ['รหัสสินค้า', 'ชื่อสินค้า', 'คงเหลือรวม', 'จุดสั่งซื้อซ้ำ', 'หมวดหมู่'],
+            ['sku', 'name', 'qty_total', 'reorder_point', 'category'],
             $rows
         );
     }
