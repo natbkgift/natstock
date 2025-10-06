@@ -12,44 +12,36 @@
 @endphp
 
 @section('content')
+@if($shouldShowAlerts)
+    @include('dashboard._alerts')
+@endif
 <div class="row">
     <div class="col-lg-4 col-md-6 mb-4">
         <div class="card card-outline card-warning h-100">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h3 class="card-title mb-0">ใกล้หมดอายุ</h3>
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-outline-warning dropdown-toggle" type="button" data-toggle="dropdown">
-                        ภายใน {{ $expiringDays }} วัน
-                    </button>
-                    <div class="dropdown-menu dropdown-menu-right">
-                        @foreach([30, 60, 90] as $days)
-                            <a class="dropdown-item {{ $expiringDays === $days ? 'active' : '' }}" href="{{ route('admin.dashboard', ['expiring_days' => $days]) }}">
-                                ภายใน {{ $days }} วัน ({{ number_format($expiringCounts[$days]) }})
-                            </a>
-                        @endforeach
-                    </div>
-                </div>
+                <h3 class="card-title mb-0">ล็อตใกล้หมดอายุ ({{ number_format($expiringCount) }})</h3>
+                <span class="badge badge-warning">ภายใน {{ $expiringDays }} วัน</span>
             </div>
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-baseline mb-2">
-                    <span class="display-4 text-warning">{{ number_format($selectedExpiringCount) }}</span>
-                    <a href="{{ route('admin.products.index', ['expiring' => $expiringDays]) }}" class="btn btn-link p-0">ดูสินค้า</a>
+                <div class="d-flex justify-content-between align-items-baseline mb-3">
+                    <span class="display-4 text-warning">{{ number_format($expiringCount) }}</span>
+                    <a href="{{ route('admin.reports.expiring-batches') }}" class="btn btn-link p-0">ไปยังรายงาน</a>
                 </div>
-                <p class="text-muted mb-0">สินค้าใกล้หมดอายุภายใน {{ $expiringDays }} วัน</p>
+                <p class="text-muted mb-0">สรุปล็อตสินค้าที่หมดอายุภายใน {{ $expiringDays }} วัน</p>
             </div>
         </div>
     </div>
     <div class="col-lg-4 col-md-6 mb-4">
         <div class="card card-outline card-danger h-100">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h3 class="card-title mb-0">สต็อกต่ำกว่าจุดสั่งซื้อซ้ำ</h3>
+                <h3 class="card-title mb-0">สินค้าสต็อกต่ำ ({{ number_format($lowStockCount) }})</h3>
             </div>
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-baseline mb-2">
+                <div class="d-flex justify-content-between align-items-baseline mb-3">
                     <span class="display-4 text-danger">{{ number_format($lowStockCount) }}</span>
-                    <a href="{{ route('admin.products.index', ['low_stock' => 1]) }}" class="btn btn-link text-danger p-0">ดูสินค้า</a>
+                    <a href="{{ route('admin.reports.low-stock') }}" class="btn btn-link text-danger p-0">ไปยังรายงาน</a>
                 </div>
-                <p class="text-muted mb-0">รายการที่ควรเติมสต็อกโดยด่วน</p>
+                <p class="text-muted mb-0">ตรวจสอบสินค้าที่ปริมาณคงเหลือน้อยกว่าจุดสั่งซื้อซ้ำ</p>
             </div>
         </div>
     </div>

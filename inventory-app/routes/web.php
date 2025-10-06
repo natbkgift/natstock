@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AlertController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\BackupController;
 use App\Http\Controllers\Admin\CategoryController;
@@ -80,9 +81,12 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
     // Reports
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
-    Route::get('reports/expiring', [ReportController::class, 'expiring'])->name('reports.expiring');
+    Route::get('reports/expiring-batches', [ReportController::class, 'expiringBatches'])->name('reports.expiring-batches');
     Route::get('reports/low-stock', [ReportController::class, 'lowStock'])->name('reports.low-stock');
     Route::get('reports/valuation', [ReportController::class, 'valuation'])->name('reports.valuation');
+
+    Route::post('alerts/mark-read', [AlertController::class, 'markRead'])->name('alerts.mark-read');
+    Route::post('alerts/snooze', [AlertController::class, 'snooze'])->name('alerts.snooze');
 });
 
 require __DIR__.'/auth.php';

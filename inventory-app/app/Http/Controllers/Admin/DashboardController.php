@@ -3,59 +3,38 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Product;
 use App\Models\StockMovement;
-use Carbon\Carbon;
+use App\Models\UserAlertState;
+use App\Services\AlertSnapshotService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 class DashboardController extends Controller
 {
+    public function __construct(private readonly AlertSnapshotService $alerts)
+    {
+    }
+
     public function index(Request $request): View
     {
         Gate::authorize('access-viewer');
 
         $pricingEnabled = (bool) config('inventory.enable_price');
-        $expiringDays = (int) $request->input('expiring_days', 30);
-        if (! in_array($expiringDays, [30, 60, 90], true)) {
-            $expiringDays = 30;
-        }
+        $snapshot = $this->alerts->buildSnapshot();
+        $user = $request->user();
 
-        $today = Carbon::today();
-        $expiringBoundaries = [
-            30 => $today->copy()->addDays(30),
-            60 => $today->copy()->addDays(60),
-            90 => $today->copy()->addDays(90),
-        ];
+        $lowStockSnapshot = $snapshot['low_stock'];
+        $expiringSnapshot = $snapshot['expiring'];
 
-        $expiringCountsResult = Product::query()
-            ->whereNotNull('expire_date')
-            ->selectRaw(
-                'SUM(CASE WHEN expire_date BETWEEN ? AND ? THEN 1 ELSE 0 END) as expiring_30,
-                  SUM(CASE WHEN expire_date BETWEEN ? AND ? THEN 1 ELSE 0 END) as expiring_60,
-                  SUM(CASE WHEN expire_date BETWEEN ? AND ? THEN 1 ELSE 0 END) as expiring_90',
-                [
-                    $today->toDateString(), $expiringBoundaries[30]->toDateString(),
-                    $today->toDateString(), $expiringBoundaries[60]->toDateString(),
-                    $today->toDateString(), $expiringBoundaries[90]->toDateString(),
-                ]
-            )
-            ->first();
+        $lowStockCount = $lowStockSnapshot['count'];
+        $expiringCount = $expiringSnapshot['count'];
 
-        $expiringCounts = [
-            30 => (int) ($expiringCountsResult->expiring_30 ?? 0),
-            60 => (int) ($expiringCountsResult->expiring_60 ?? 0),
-            90 => (int) ($expiringCountsResult->expiring_90 ?? 0),
-        ];
-
-        $selectedExpiringCount = $expiringCounts[$expiringDays];
-        $lowStockCount = Product::query()->where('is_active', true)->lowStock()->count();
         $stockValue = 0.0;
         $stockValueFormatted = 'ปิดใช้งาน';
 
         if ($pricingEnabled) {
-            $stockValue = (float) (Product::query()->selectRaw('SUM(qty * cost_price) as total')->value('total') ?? 0);
+            $stockValue = (float) ($this->totalStockValue() ?? 0);
             $stockValueFormatted = $this->formatThaiNumber($stockValue);
         }
 
@@ -65,14 +44,18 @@ class DashboardController extends Controller
             ->limit(10)
             ->get();
 
+        $alertStates = $this->resolveAlertStates($user?->id, $snapshot);
+        $shouldShowModal = $alertStates['low_stock']['show'] || $alertStates['expiring']['show'];
+
         return view('admin.dashboard', [
-            'expiringDays' => $expiringDays,
-            'expiringCounts' => $expiringCounts,
-            'selectedExpiringCount' => $selectedExpiringCount,
+            'expiringDays' => $expiringSnapshot['days'],
+            'expiringCount' => $expiringCount,
             'lowStockCount' => $lowStockCount,
             'pricingEnabled' => $pricingEnabled,
             'stockValueFormatted' => $stockValueFormatted,
             'recentMovements' => $recentMovements,
+            'alertStates' => $alertStates,
+            'shouldShowAlerts' => $shouldShowModal,
         ]);
     }
 
@@ -80,5 +63,56 @@ class DashboardController extends Controller
     {
         // แสดงเลขอารบิก ไม่มีทศนิยม
         return number_format($value, 0);
+    }
+
+    private function totalStockValue(): ?string
+    {
+        return \App\Models\Product::query()->selectRaw('SUM(qty * cost_price) as total')->value('total');
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function resolveAlertStates(?int $userId, array $snapshot): array
+    {
+        $result = [
+            'low_stock' => [
+                'show' => false,
+                'count' => $snapshot['low_stock']['count'],
+                'items' => array_slice($snapshot['low_stock']['items'], 0, 10),
+                'payload_hash' => $snapshot['low_stock']['payload_hash'],
+            ],
+            'expiring' => [
+                'show' => false,
+                'count' => $snapshot['expiring']['count'],
+                'items' => array_slice($snapshot['expiring']['items'], 0, 10),
+                'payload_hash' => $snapshot['expiring']['payload_hash'],
+                'days' => $snapshot['expiring']['days'],
+            ],
+        ];
+
+        if ($userId === null) {
+            return $result;
+        }
+
+        foreach (['low_stock', 'expiring'] as $type) {
+            $payloadHash = $result[$type]['payload_hash'];
+
+            if (! $snapshot[$type]['enabled'] || $result[$type]['count'] <= 0 || ! $payloadHash) {
+                continue;
+            }
+
+            $state = UserAlertState::query()
+                ->where('user_id', $userId)
+                ->where('alert_type', $type)
+                ->where('payload_hash', $payloadHash)
+                ->first();
+
+            if ($state === null || (! $state->isRead() && ! $state->isSnoozed())) {
+                $result[$type]['show'] = true;
+            }
+        }
+
+        return $result;
     }
 }

@@ -105,7 +105,7 @@ class Product extends Model
 
     public function getIsLowStockAttribute(): bool
     {
-        return $this->qty <= $this->reorder_point;
+        return $this->isLowStock();
     }
 
     public function getIsExpiringSoonAttribute(): bool
@@ -118,5 +118,16 @@ class Product extends Model
         $limit = $today->copy()->addDays(30);
 
         return $this->expire_date->between($today, $limit);
+    }
+
+    public function isLowStock(): bool
+    {
+        $reorderPoint = (int) $this->reorder_point;
+
+        if ($reorderPoint <= 0) {
+            return false;
+        }
+
+        return $this->qtyCurrent() <= $reorderPoint;
     }
 }

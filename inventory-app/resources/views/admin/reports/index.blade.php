@@ -12,12 +12,12 @@
     <div class="col-md-4">
         <div class="card card-outline card-warning h-100">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h3 class="card-title mb-0">รายงานใกล้หมดอายุ</h3>
+                <h3 class="card-title mb-0">รายงานล็อตใกล้หมดอายุ</h3>
                 <i class="fas fa-hourglass-half text-warning"></i>
             </div>
             <div class="card-body">
-                <p class="mb-2">ติดตามสินค้าที่กำลังจะหมดอายุภายใน 30, 60 หรือ 90 วัน พร้อมตัวกรองตามหมวดหมู่และสถานะ.</p>
-                <a href="{{ route('admin.reports.expiring') }}" class="btn btn-warning btn-block text-white">เปิดรายงาน</a>
+                <p class="mb-2">ตรวจสอบล็อตสินค้าที่กำลังจะหมดอายุภายใน 7, 30, 60 หรือ 90 วัน พร้อมตัวกรองหมวดหมู่และสถานะล็อต.</p>
+                <a href="{{ route('admin.reports.expiring-batches') }}" class="btn btn-warning btn-block text-white">เปิดรายงาน</a>
             </div>
         </div>
     </div>

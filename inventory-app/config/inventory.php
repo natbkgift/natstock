@@ -3,7 +3,10 @@
 return [
     'settings_defaults' => [
         'alert_expiring_days' => '30,60,90',
+        'expiring_days' => '30',
         'notify_low_stock' => '1',
+        'low_stock_enabled' => '1',
+        'expiring_enabled' => '1',
         'notify_channels' => 'inapp,email,line',
         'notify_emails' => 'manager@example.com,owner@example.com',
         'daily_scan_time' => '08:00',

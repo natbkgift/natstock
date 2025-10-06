@@ -30,6 +30,11 @@ class SettingManager
         return in_array($normalized, ['1', 'true', 'on', 'yes'], true);
     }
 
+    public function getInt(string $key, int $default = 0): int
+    {
+        return (int) $this->getString($key, (string) $default);
+    }
+
     /**
      * @return array<int, string>
      */
@@ -75,7 +80,23 @@ class SettingManager
 
     public function shouldNotifyLowStock(): bool
     {
+        if ($this->hasSetting('low_stock_enabled')) {
+            return $this->getBool('low_stock_enabled', true);
+        }
+
         return $this->getBool('notify_low_stock', true);
+    }
+
+    public function isExpiringAlertEnabled(): bool
+    {
+        return $this->getBool('expiring_enabled', true);
+    }
+
+    public function getExpiringLeadDays(): int
+    {
+        $days = $this->getInt('expiring_days', 30);
+
+        return $days > 0 ? $days : 30;
     }
 
     /**
@@ -102,6 +123,11 @@ class SettingManager
     public function forgetCache(): void
     {
         Cache::forget(self::CACHE_KEY);
+    }
+
+    private function hasSetting(string $key): bool
+    {
+        return array_key_exists($key, $this->getAll());
     }
 
     public function getExpiringDays(): array

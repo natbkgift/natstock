@@ -4,10 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Models\Product;
+use App\Models\ProductBatch;
 use App\Services\Reports\ProductReportService;
 use App\Support\CsvExporter;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
@@ -28,28 +32,27 @@ class ReportController extends Controller
         ]);
     }
 
-    public function expiring(Request $request)
+    public function expiringBatches(Request $request)
     {
         Gate::authorize('access-viewer');
 
-        $filters = $this->prepareFilters($request, true);
+        $filters = $this->prepareExpiringBatchFilters($request);
+        $query = $this->buildExpiringBatchesQuery($filters);
 
         if ($this->isCsvExport($request)) {
-            $products = $this->reports->expiring($filters, false);
+            $batches = $query->get();
 
-            return $this->exportExpiringCsv($products, $filters);
+            return $this->exportExpiringBatchesCsv($batches, $filters);
         }
 
-        $products = $this->reports->expiring($filters);
+        $batches = $query->paginate(25)->withQueryString();
         $categories = $this->loadCategories();
 
-        return view('admin.reports.expiring', [
-            'products' => $products,
+        return view('admin.reports.expiring_batches', [
+            'batches' => $batches,
             'categories' => $categories,
             'filters' => $filters,
-            'summary' => $this->buildSummary($filters, $products, $categories, [
-                'days' => $filters['days'],
-            ]),
+            'dayOptions' => [7, 30, 60, 90],
         ]);
     }
 
@@ -57,22 +60,22 @@ class ReportController extends Controller
     {
         Gate::authorize('access-viewer');
 
-        $filters = $this->prepareFilters($request, false);
+        $filters = $this->prepareLowStockFilters($request);
+        $query = $this->buildLowStockQuery($filters);
 
         if ($this->isCsvExport($request)) {
-            $products = $this->reports->lowStock($filters, false);
+            $products = $query->get();
 
             return $this->exportLowStockCsv($products);
         }
 
-        $products = $this->reports->lowStock($filters);
+        $products = $query->paginate(25)->withQueryString();
         $categories = $this->loadCategories();
 
-        return view('admin.reports.low-stock', [
+        return view('admin.reports.low_stock', [
             'products' => $products,
             'categories' => $categories,
             'filters' => $filters,
-            'summary' => $this->buildSummary($filters, $products, $categories),
         ]);
     }
 
@@ -124,6 +127,36 @@ class ReportController extends Controller
         }
 
         return $filters;
+    }
+
+    /**
+     * @return array{days: int, category_id: int, search: string, active_only: bool}
+     */
+    private function prepareExpiringBatchFilters(Request $request): array
+    {
+        $allowed = [7, 30, 60, 90];
+        $days = $request->integer('days', 30);
+        if (! in_array($days, $allowed, true)) {
+            $days = 30;
+        }
+
+        return [
+            'days' => $days,
+            'category_id' => $request->integer('category_id'),
+            'search' => trim((string) $request->string('search')->toString()),
+            'active_only' => $request->has('active') ? $request->boolean('active') : true,
+        ];
+    }
+
+    /**
+     * @return array{category_id: int, search: string}
+     */
+    private function prepareLowStockFilters(Request $request): array
+    {
+        return [
+            'category_id' => $request->integer('category_id'),
+            'search' => trim((string) $request->string('search')->toString()),
+        ];
     }
 
     protected function isCsvExport(Request $request): bool
@@ -183,36 +216,99 @@ class ReportController extends Controller
         };
     }
 
-    protected function productStatus(bool $isActive): string
+    private function buildExpiringBatchesQuery(array $filters): Builder
     {
-        return $isActive ? 'ใช้งาน' : 'ปิดใช้งาน';
+        $query = ProductBatch::query()
+            ->with(['product.category'])
+            ->expiringIn($filters['days'])
+            ->when($filters['active_only'], fn (Builder $builder) => $builder->active())
+            ->whereHas('product', function (Builder $productQuery) use ($filters): void {
+                $productQuery
+                    ->when($filters['active_only'], fn (Builder $builder) => $builder->where('is_active', true))
+                    ->when($filters['category_id'] > 0, fn (Builder $builder) => $builder->where('category_id', $filters['category_id']));
+            });
+
+        if ($filters['search'] !== '') {
+            $like = '%' . $filters['search'] . '%';
+            $query->where(function (Builder $subQuery) use ($like): void {
+                $subQuery
+                    ->where('sub_sku', 'like', $like)
+                    ->orWhereHas('product', function (Builder $productQuery) use ($like): void {
+                        $productQuery
+                            ->where('sku', 'like', $like)
+                            ->orWhere('name', 'like', $like);
+                    });
+            });
+        }
+
+        return $query->orderBy('expire_date')->orderBy('sub_sku');
     }
 
-    protected function exportExpiringCsv(Collection $products, array $filters)
+    private function buildLowStockQuery(array $filters): Builder
+    {
+        $batchTotals = ProductBatch::query()
+            ->select('product_id')
+            ->selectRaw('SUM(CASE WHEN is_active = 1 THEN qty ELSE 0 END) as active_qty')
+            ->selectRaw('COUNT(*) as total_batches')
+            ->groupBy('product_id');
+
+        $totalExpression = 'CASE WHEN COALESCE(batch_totals.total_batches, 0) > 0 '
+            . 'THEN COALESCE(batch_totals.active_qty, 0) ELSE products.qty END';
+
+        $query = Product::query()
+            ->select('products.*')
+            ->selectRaw($totalExpression.' as qty_total')
+            ->leftJoinSub($batchTotals, 'batch_totals', 'batch_totals.product_id', '=', 'products.id')
+            ->where('products.is_active', true)
+            ->where('products.reorder_point', '>', 0)
+            ->whereRaw($totalExpression.' <= products.reorder_point')
+            ->with([
+                'category:id,name',
+                'batches' => function (HasMany $relation): void {
+                    $relation->active()->orderBy('expire_date')->orderBy('sub_sku')->take(3);
+                },
+            ])
+            ->orderByRaw($totalExpression)
+            ->orderBy('products.name');
+
+        if ($filters['category_id'] > 0) {
+            $query->where('products.category_id', $filters['category_id']);
+        }
+
+        if ($filters['search'] !== '') {
+            $like = '%' . $filters['search'] . '%';
+            $query->where(function (Builder $subQuery) use ($like): void {
+                $subQuery
+                    ->where('products.sku', 'like', $like)
+                    ->orWhere('products.name', 'like', $like);
+            });
+        }
+
+        return $query;
+    }
+
+    protected function exportExpiringBatchesCsv(Collection $batches, array $filters)
     {
         $days = (int) ($filters['days'] ?? 30);
-        $filename = sprintf('expiring_%dd_%s.csv', $days, Carbon::today()->format('Ymd'));
+        $filename = sprintf('expiring_batches_%dd_%s.csv', $days, Carbon::today()->format('Ymd'));
 
-        $rows = $products->map(function ($product): array {
-            $categoryName = $product->category->name ?? '-';
-            $expireDate = $product->expire_date instanceof Carbon
-                ? $product->expire_date->format('Y-m-d')
-                : (string) $product->expire_date;
+        $rows = $batches->map(function (ProductBatch $batch): array {
+            $product = $batch->product;
+            $categoryName = $product?->category?->name ?? '-';
 
             return [
-                $product->sku,
-                $product->name,
+                $product?->sku ?? '-',
+                $product?->name ?? '-',
+                $batch->sub_sku ?? '-',
+                optional($batch->expire_date)->format('Y-m-d'),
+                (string) $batch->qty,
                 $categoryName,
-                $expireDate,
-                (string) $product->qty,
-                (string) $product->reorder_point,
-                $this->productStatus((bool) $product->is_active),
             ];
         });
 
         return CsvExporter::download(
             $filename,
-            ['รหัสสินค้า', 'ชื่อสินค้า', 'หมวดหมู่', 'วันหมดอายุ', 'คงเหลือ', 'จุดสั่งซื้อซ้ำ', 'สถานะ'],
+            ['sku', 'name', 'sub_sku', 'expire_date', 'qty', 'category'],
             $rows
         );
     }
@@ -221,26 +317,22 @@ class ReportController extends Controller
     {
         $filename = sprintf('low_stock_%s.csv', Carbon::today()->format('Ymd'));
 
-        $rows = $products->map(function ($product): array {
+        $rows = $products->map(function (Product $product): array {
             $categoryName = $product->category->name ?? '-';
-            $expireDate = $product->expire_date instanceof Carbon
-                ? $product->expire_date->format('Y-m-d')
-                : (string) $product->expire_date;
+            $qtyTotal = $product->qty_total ?? $product->qtyCurrent();
 
             return [
                 $product->sku,
                 $product->name,
-                $categoryName,
-                (string) $product->qty,
+                (string) $qtyTotal,
                 (string) $product->reorder_point,
-                $expireDate,
-                $this->productStatus((bool) $product->is_active),
+                $categoryName,
             ];
         });
 
         return CsvExporter::download(
             $filename,
-            ['รหัสสินค้า', 'ชื่อสินค้า', 'หมวดหมู่', 'คงเหลือ', 'จุดสั่งซื้อซ้ำ', 'วันหมดอายุ', 'สถานะ'],
+            ['sku', 'name', 'qty_total', 'reorder_point', 'category'],
             $rows
         );
     }

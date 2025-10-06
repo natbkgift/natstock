@@ -2,7 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Models\UserAlertState;
 use App\Notifications\InventoryAlertNotification;
+use App\Services\AlertSnapshotService;
 use App\Services\InventoryAlertService;
 use App\Services\LineNotifyService;
 use App\Support\Settings\SettingManager;
@@ -22,6 +24,7 @@ class InventoryScanAlertsCommand extends Command
         private readonly InventoryAlertService $alertService,
         private readonly SettingManager $settings,
         private readonly LineNotifyService $lineNotifyService,
+        private readonly AlertSnapshotService $snapshotService,
     ) {
         parent::__construct();
     }
@@ -29,13 +32,24 @@ class InventoryScanAlertsCommand extends Command
     public function handle(): int
     {
         $channels = $this->settings->getNotifyChannels();
-        $summary = $this->alertService->collectSummary();
+        $snapshot = $this->snapshotService->buildSnapshot();
+        $summary = $this->alertService->collectSummary($snapshot);
 
         Log::channel('daily')->info('เริ่มสแกนแจ้งเตือนสินค้า', [
             'channels' => $channels,
-            'expiring' => array_map(fn ($bucket) => ['days' => $bucket['days'], 'count' => $bucket['count']], $summary['expiring']),
-            'low_stock_count' => $summary['low_stock']['count'],
+            'expiring' => [
+                'enabled' => $summary['expiring']['enabled'],
+                'days' => $summary['expiring']['days'],
+                'count' => $summary['expiring']['count'],
+            ],
+            'low_stock' => [
+                'enabled' => $summary['low_stock']['enabled'],
+                'count' => $summary['low_stock']['count'],
+            ],
         ]);
+
+        $recipients = $this->alertService->resolveRecipients();
+        $this->syncUserAlertStates($recipients, $snapshot);
 
         $this->sendInAppNotifications($channels, $summary);
         $this->sendEmailNotifications($channels, $summary);
@@ -61,7 +75,7 @@ class InventoryScanAlertsCommand extends Command
         $payload = [
             'summary' => $summary,
             'links' => [
-                'expiring' => URL::route('admin.reports.expiring'),
+                'expiring' => URL::route('admin.reports.expiring-batches'),
                 'low_stock' => URL::route('admin.reports.low-stock'),
             ],
         ];
@@ -95,5 +109,33 @@ class InventoryScanAlertsCommand extends Command
 
         $message = $this->alertService->buildLineMessage($summary);
         $this->lineNotifyService->send($message);
+    }
+
+    private function syncUserAlertStates(array $recipients, array $snapshot): void
+    {
+        if (empty($recipients)) {
+            return;
+        }
+
+        $typeMap = [
+            'low_stock' => 'low_stock',
+            'expiring' => 'expiring',
+        ];
+
+        foreach ($typeMap as $alertType => $key) {
+            $payloadHash = $snapshot[$key]['payload_hash'] ?? null;
+
+            if (! $payloadHash) {
+                continue;
+            }
+
+            foreach ($recipients as $user) {
+                UserAlertState::query()->firstOrCreate([
+                    'user_id' => $user->id,
+                    'alert_type' => $alertType,
+                    'payload_hash' => $payloadHash,
+                ]);
+            }
+        }
     }
 }
