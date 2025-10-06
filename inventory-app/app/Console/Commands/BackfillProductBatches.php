@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\ProductBatch;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class BackfillProductBatches extends Command
 {
@@ -18,45 +19,75 @@ class BackfillProductBatches extends Command
         $this->info('เริ่ม backfill ยอดคงเหลือเข้าสู่ product_batches...');
 
         $createdBatches = 0;
-        $touchedProducts = 0;
+        $skippedZeroQty = 0;
+        $skippedExisting = 0;
 
-        Product::query()->orderBy('id')->chunkById(100, function ($products) use (&$createdBatches, &$touchedProducts) {
-            foreach ($products as $product) {
-                DB::transaction(function () use ($product, &$createdBatches, &$touchedProducts) {
-                    $qty = (int) $product->qty;
-                    $unspecifiedSubSku = $product->sku.'-UNSPECIFIED';
+        try {
+            Product::query()
+                ->with('batches')
+                ->orderBy('id')
+                ->chunkById(100, function ($products) use (&$createdBatches, &$skippedZeroQty, &$skippedExisting) {
+                    DB::transaction(function () use ($products, &$createdBatches, &$skippedZeroQty, &$skippedExisting) {
+                        foreach ($products as $product) {
+                            $qty = (int) $product->qty;
 
-                    if ($qty > 0) {
-                        $batch = ProductBatch::updateOrCreate(
-                            [
-                                'product_id' => $product->id,
-                                'sub_sku' => $unspecifiedSubSku,
-                            ],
-                            [
-                                'expire_date' => null,
-                                'qty' => $qty,
-                                'note' => 'สร้างอัตโนมัติเพื่อคงยอดเดิมก่อนรองรับหลายล็อต',
-                                'is_active' => true,
-                            ]
-                        );
+                            if ($qty === 0) {
+                                ++$skippedZeroQty;
 
-                        if ($batch->wasRecentlyCreated) {
-                            ++$createdBatches;
+                                continue;
+                            }
+
+                            if ($qty < 0) {
+                                throw new RuntimeException(
+                                    "Product ID {$product->id} has negative quantity ({$qty}), which cannot be backfilled."
+                                );
+                            }
+
+                            $unspecifiedSubSku = $product->sku.'-UNSPECIFIED';
+                            $existingBatch = $product->batches->firstWhere('sub_sku', $unspecifiedSubSku);
+
+                            if ($existingBatch !== null) {
+                                ++$skippedExisting;
+
+                                continue;
+                            }
+
+                            $batch = ProductBatch::firstOrCreate(
+                                [
+                                    'product_id' => $product->id,
+                                    'sub_sku' => $unspecifiedSubSku,
+                                ],
+                                [
+                                    'expire_date' => null,
+                                    'qty' => $qty,
+                                    'note' => 'สร้างอัตโนมัติเพื่อคงยอดเดิมก่อนรองรับหลายล็อต',
+                                    'is_active' => true,
+                                ]
+                            );
+
+                            if ($batch->wasRecentlyCreated) {
+                                ++$createdBatches;
+                            }
                         }
-                    }
-
-                    if ($product->qty !== 0) {
-                        // ปรับยอดหลักกลับไปเป็น 0 เพื่อให้ระบบใช้ค่าจาก batch แทน
-                        $product->qty = 0;
-                        $product->save();
-                        ++$touchedProducts;
-                    }
+                    });
                 });
-            }
-        });
+        } catch (RuntimeException $exception) {
+            $this->error($exception->getMessage());
+            $this->error('การ backfill ถูกยกเลิก กรุณาแก้ไขข้อมูลก่อนรันคำสั่งอีกครั้ง');
+
+            return Command::FAILURE;
+        }
 
         $this->info("สร้าง batch UNSPECIFIED ใหม่จำนวน {$createdBatches} รายการ");
-        $this->info("อัปเดต products.qty เป็น 0 จำนวน {$touchedProducts} รายการ");
+
+        if ($skippedExisting > 0) {
+            $this->info("ข้ามสินค้า {$skippedExisting} รายการที่มี batch UNSPECIFIED อยู่แล้ว");
+        }
+
+        if ($skippedZeroQty > 0) {
+            $this->info("ข้ามสินค้า {$skippedZeroQty} รายการที่มียอดคงเหลือเป็น 0");
+        }
+
         $this->info('สำเร็จแล้ว สามารถเริ่มใช้งานโครงสร้าง lot ใหม่ได้');
 
         return Command::SUCCESS;

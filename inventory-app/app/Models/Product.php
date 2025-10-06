@@ -54,24 +54,22 @@ class Product extends Model
     {
         // รวมยอดคงเหลือจาก batch ที่เปิดใช้งาน หากยังไม่มี batch ให้ fallback ไปใช้ qty เดิม
         if ($this->relationLoaded('batches')) {
-            $batches = $this->batches;
-
-            if ($batches->isEmpty()) {
+            if ($this->batches->isEmpty()) {
                 return (int) $this->qty;
             }
 
-            return (int) $batches
-                ->where('is_active', true)
-                ->sum('qty');
+            return (int) $this->batches->where('is_active', true)->sum('qty');
         }
 
-        if (! ProductBatch::where('product_id', $this->id)->exists()) {
-            return (int) $this->qty;
+        $activeQty = (int) $this->batches()->where('is_active', true)->sum('qty');
+
+        if ($activeQty > 0) {
+            return $activeQty;
         }
 
-        return (int) ProductBatch::where('product_id', $this->id)
-            ->where('is_active', true)
-            ->sum('qty');
+        return $this->batches()->exists()
+            ? 0
+            : (int) $this->qty;
     }
 
     public function scopeActive(Builder $query): Builder
