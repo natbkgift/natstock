@@ -113,29 +113,33 @@ class InventoryScanAlertsCommand extends Command
 
     private function syncUserAlertStates(array $recipients, array $snapshot): void
     {
-        if (empty($recipients)) {
+        if (count($recipients) === 0) {
             return;
         }
 
-        $typeMap = [
-            'low_stock' => 'low_stock',
-            'expiring' => 'expiring',
-        ];
+        $statesToCreate = [];
+        $now = now();
 
-        foreach ($typeMap as $alertType => $key) {
-            $payloadHash = $snapshot[$key]['payload_hash'] ?? null;
+        foreach (['low_stock', 'expiring'] as $alertType) {
+            $payloadHash = $snapshot[$alertType]['payload_hash'] ?? null;
 
             if (! $payloadHash) {
                 continue;
             }
 
             foreach ($recipients as $user) {
-                UserAlertState::query()->firstOrCreate([
+                $statesToCreate[] = [
                     'user_id' => $user->id,
                     'alert_type' => $alertType,
                     'payload_hash' => $payloadHash,
-                ]);
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
             }
+        }
+
+        if ($statesToCreate !== []) {
+            UserAlertState::query()->insertOrIgnore($statesToCreate);
         }
     }
 }

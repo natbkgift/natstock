@@ -246,29 +246,15 @@ class ReportController extends Controller
 
     private function buildLowStockQuery(array $filters): Builder
     {
-        $batchTotals = ProductBatch::query()
-            ->select('product_id')
-            ->selectRaw('SUM(CASE WHEN is_active = 1 THEN qty ELSE 0 END) as active_qty')
-            ->selectRaw('COUNT(*) as total_batches')
-            ->groupBy('product_id');
-
-        $totalExpression = 'CASE WHEN COALESCE(batch_totals.total_batches, 0) > 0 '
-            . 'THEN COALESCE(batch_totals.active_qty, 0) ELSE products.qty END';
-
         $query = Product::query()
-            ->select('products.*')
-            ->selectRaw($totalExpression.' as qty_total')
-            ->leftJoinSub($batchTotals, 'batch_totals', 'batch_totals.product_id', '=', 'products.id')
-            ->where('products.is_active', true)
-            ->where('products.reorder_point', '>', 0)
-            ->whereRaw($totalExpression.' <= products.reorder_point')
+            ->isLowStockWithAggregatedQty()
             ->with([
                 'category:id,name',
                 'batches' => function (HasMany $relation): void {
                     $relation->active()->orderBy('expire_date')->orderBy('sub_sku')->take(3);
                 },
             ])
-            ->orderByRaw($totalExpression)
+            ->orderBy('qty_total')
             ->orderBy('products.name');
 
         if ($filters['category_id'] > 0) {
@@ -308,7 +294,7 @@ class ReportController extends Controller
 
         return CsvExporter::download(
             $filename,
-            ['sku', 'name', 'sub_sku', 'expire_date', 'qty', 'category'],
+            ['รหัสสินค้า', 'ชื่อสินค้า', 'Sub-SKU/ล็อต', 'วันหมดอายุ', 'คงเหลือ', 'หมวดหมู่'],
             $rows
         );
     }
@@ -332,7 +318,7 @@ class ReportController extends Controller
 
         return CsvExporter::download(
             $filename,
-            ['sku', 'name', 'qty_total', 'reorder_point', 'category'],
+            ['รหัสสินค้า', 'ชื่อสินค้า', 'คงเหลือรวม', 'จุดสั่งซื้อซ้ำ', 'หมวดหมู่'],
             $rows
         );
     }

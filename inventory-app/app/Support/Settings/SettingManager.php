@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Cache;
 class SettingManager
 {
     private const CACHE_KEY = 'app_settings_cache';
+    private const RAW_CACHE_KEY = 'app_settings_cache_raw';
 
     public function getString(string $key, ?string $default = null): string
     {
@@ -113,7 +114,7 @@ class SettingManager
     public function getAll(): array
     {
         return Cache::rememberForever(self::CACHE_KEY, function (): array {
-            $rows = Setting::query()->pluck('value', 'key')->all();
+            $rows = $this->getStoredSettings();
             $defaults = config('inventory.settings_defaults', []);
 
             return array_merge($defaults, $rows);
@@ -123,11 +124,12 @@ class SettingManager
     public function forgetCache(): void
     {
         Cache::forget(self::CACHE_KEY);
+        Cache::forget(self::RAW_CACHE_KEY);
     }
 
     private function hasSetting(string $key): bool
     {
-        return array_key_exists($key, $this->getAll());
+        return array_key_exists($key, $this->getStoredSettings());
     }
 
     public function getExpiringDays(): array
@@ -140,5 +142,15 @@ class SettingManager
         sort($numbers);
 
         return array_values($numbers);
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    private function getStoredSettings(): array
+    {
+        return Cache::rememberForever(self::RAW_CACHE_KEY, function (): array {
+            return Setting::query()->pluck('value', 'key')->all();
+        });
     }
 }

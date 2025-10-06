@@ -119,23 +119,9 @@ class AlertSnapshotService
      */
     private function lowStockQuery(): Builder
     {
-        $batchTotals = ProductBatch::query()
-            ->select('product_id')
-            ->selectRaw('SUM(CASE WHEN is_active = 1 THEN qty ELSE 0 END) as active_qty')
-            ->selectRaw('COUNT(*) as total_batches')
-            ->groupBy('product_id');
-
-        $totalExpression = 'CASE WHEN COALESCE(batch_totals.total_batches, 0) > 0 '
-            . 'THEN COALESCE(batch_totals.active_qty, 0) ELSE products.qty END';
-
         return Product::query()
-            ->select('products.*')
-            ->selectRaw($totalExpression.' as qty_total')
-            ->leftJoinSub($batchTotals, 'batch_totals', 'batch_totals.product_id', '=', 'products.id')
-            ->where('products.is_active', true)
-            ->where('products.reorder_point', '>', 0)
-            ->whereRaw($totalExpression.' <= products.reorder_point')
-            ->orderByRaw($totalExpression)
+            ->isLowStockWithAggregatedQty()
+            ->orderBy('qty_total')
             ->orderBy('products.name');
     }
 

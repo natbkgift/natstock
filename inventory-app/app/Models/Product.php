@@ -77,6 +77,29 @@ class Product extends Model
         return $query->where('is_active', true);
     }
 
+    public function scopeWithBatchQuantityTotals(Builder $query): Builder
+    {
+        $batchTotals = ProductBatch::query()
+            ->select('product_id')
+            ->selectRaw('SUM(CASE WHEN is_active = 1 THEN qty ELSE 0 END) as active_qty')
+            ->selectRaw('COUNT(*) as total_batches')
+            ->groupBy('product_id');
+
+        return $query
+            ->select('products.*')
+            ->selectRaw(self::batchQuantityTotalExpression() . ' as qty_total')
+            ->leftJoinSub($batchTotals, 'batch_totals', 'batch_totals.product_id', '=', 'products.id');
+    }
+
+    public function scopeIsLowStockWithAggregatedQty(Builder $query): Builder
+    {
+        return $query
+            ->withBatchQuantityTotals()
+            ->where('products.is_active', true)
+            ->where('products.reorder_point', '>', 0)
+            ->whereRaw(self::batchQuantityTotalExpression() . ' <= products.reorder_point');
+    }
+
     public function scopeLowStock(Builder $query): Builder
     {
         return $query->whereColumn('qty', '<=', 'reorder_point');
@@ -129,5 +152,11 @@ class Product extends Model
         }
 
         return $this->qtyCurrent() <= $reorderPoint;
+    }
+
+    public static function batchQuantityTotalExpression(): string
+    {
+        return 'CASE WHEN COALESCE(batch_totals.total_batches, 0) > 0 '
+            . 'THEN COALESCE(batch_totals.active_qty, 0) ELSE products.qty END';
     }
 }
