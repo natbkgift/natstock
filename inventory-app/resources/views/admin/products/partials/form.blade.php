@@ -36,20 +36,27 @@
     </div>
 </div>
 <div class="form-row">
-    <div class="form-group col-md-4">
-        <label for="cost_price">ราคาทุน (บาท)</label>
-        <input type="number" step="0.01" min="0" name="cost_price" id="cost_price" class="form-control @error('cost_price') is-invalid @enderror" value="{{ old('cost_price', optional($product)->cost_price ?? 0) }}">
-        @error('cost_price')
-            <div class="invalid-feedback">{{ $message }}</div>
-        @enderror
-    </div>
-    <div class="form-group col-md-4">
-        <label for="sale_price">ราคาขาย (บาท)</label>
-        <input type="number" step="0.01" min="0" name="sale_price" id="sale_price" class="form-control @error('sale_price') is-invalid @enderror" value="{{ old('sale_price', optional($product)->sale_price ?? 0) }}">
-        @error('sale_price')
-            <div class="invalid-feedback">{{ $message }}</div>
-        @enderror
-    </div>
+    @if(config('inventory.enable_price'))
+        <div class="form-group col-md-4">
+            <label for="cost_price">ราคาทุน (บาท)</label>
+            <input type="number" step="0.01" min="0" name="cost_price" id="cost_price" class="form-control @error('cost_price') is-invalid @enderror" value="{{ old('cost_price', optional($product)->cost_price ?? 0) }}">
+            @error('cost_price')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
+        <div class="form-group col-md-4">
+            <label for="sale_price">ราคาขาย (บาท)</label>
+            <input type="number" step="0.01" min="0" name="sale_price" id="sale_price" class="form-control @error('sale_price') is-invalid @enderror" value="{{ old('sale_price', optional($product)->sale_price ?? 0) }}">
+            @error('sale_price')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
+    @else
+        <div class="form-group col-md-8">
+            <label class="d-block text-muted">ระบบนี้ปิดการใช้งานราคาทุน/ราคาขายแล้ว</label>
+            <p class="form-text text-muted mb-0">ข้อมูลราคาที่กรอกเข้ามาจะถูกละเว้นอัตโนมัติ</p>
+        </div>
+    @endif
     <div class="form-group col-md-4">
         <label for="expire_date">วันหมดอายุ</label>
         <input type="date" name="expire_date" id="expire_date" class="form-control @error('expire_date') is-invalid @enderror" value="{{ old('expire_date', optional(optional($product)->expire_date)->format('Y-m-d')) }}">

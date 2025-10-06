@@ -13,4 +13,5 @@ return [
         'email' => 'อีเมล',
         'line' => 'LINE Notify',
     ],
+    'enable_price' => (bool) env('INVENTORY_ENABLE_PRICE', false),
 ];

@@ -9,6 +9,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
+beforeEach(function (): void {
+    config()->set('inventory.enable_price', true);
+});
+
 if (!function_exists('assertSameValue')) {
     function assertSameValue(mixed $expected, mixed $actual, string $message = ''): void
     {

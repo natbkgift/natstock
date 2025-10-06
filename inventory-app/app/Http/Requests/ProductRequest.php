@@ -31,6 +31,8 @@ class ProductRequest extends FormRequest
             $uniqueSkuRule->ignore($productId);
         }
 
+        $pricingEnabled = (bool) config('inventory.enable_price');
+
         return [
             'sku' => [
                 'required',
@@ -41,8 +43,8 @@ class ProductRequest extends FormRequest
             ],
             'name' => ['required', 'string', 'max:150'],
             'category_id' => ['required', 'exists:categories,id'],
-            'cost_price' => ['numeric', 'min:0'],
-            'sale_price' => ['numeric', 'min:0'],
+            'cost_price' => $pricingEnabled ? ['numeric', 'min:0'] : ['nullable'],
+            'sale_price' => $pricingEnabled ? ['numeric', 'min:0'] : ['nullable'],
             'expire_date' => ['nullable', 'date_format:Y-m-d'],
             'reorder_point' => ['integer', 'min:0'],
             'qty' => ['integer', 'min:0'],

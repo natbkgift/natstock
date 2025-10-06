@@ -118,6 +118,9 @@
                             </td>
                             <td class="text-right">
                                 <div class="btn-group btn-group-sm" role="group">
+                                    @can('view', $product)
+                                        <a href="{{ route('admin.products.show', $product) }}" class="btn btn-outline-primary">รายละเอียด</a>
+                                    @endcan
                                     @can('update', $product)
                                         <a href="{{ route('admin.products.edit', $product) }}" class="btn btn-outline-secondary">แก้ไข</a>
                                     @endcan

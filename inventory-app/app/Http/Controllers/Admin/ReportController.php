@@ -23,7 +23,9 @@ class ReportController extends Controller
     {
         Gate::authorize('access-viewer');
 
-        return view('admin.reports.index');
+        return view('admin.reports.index', [
+            'pricingEnabled' => (bool) config('inventory.enable_price'),
+        ]);
     }
 
     public function expiring(Request $request)
@@ -77,6 +79,10 @@ class ReportController extends Controller
     public function valuation(Request $request)
     {
         Gate::authorize('access-viewer');
+
+        if (!config('inventory.enable_price')) {
+            abort(404);
+        }
 
         $filters = $this->prepareFilters($request, false);
 

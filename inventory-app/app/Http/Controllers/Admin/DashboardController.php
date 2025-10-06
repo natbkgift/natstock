@@ -16,6 +16,7 @@ class DashboardController extends Controller
     {
         Gate::authorize('access-viewer');
 
+        $pricingEnabled = (bool) config('inventory.enable_price');
         $expiringDays = (int) $request->input('expiring_days', 30);
         if (! in_array($expiringDays, [30, 60, 90], true)) {
             $expiringDays = 30;
@@ -50,8 +51,13 @@ class DashboardController extends Controller
 
         $selectedExpiringCount = $expiringCounts[$expiringDays];
         $lowStockCount = Product::query()->where('is_active', true)->lowStock()->count();
-        $stockValue = (float) (Product::query()->selectRaw('SUM(qty * cost_price) as total')->value('total') ?? 0);
-        $stockValueFormatted = $this->formatThaiNumber($stockValue);
+        $stockValue = 0.0;
+        $stockValueFormatted = 'ปิดใช้งาน';
+
+        if ($pricingEnabled) {
+            $stockValue = (float) (Product::query()->selectRaw('SUM(qty * cost_price) as total')->value('total') ?? 0);
+            $stockValueFormatted = $this->formatThaiNumber($stockValue);
+        }
 
         $recentMovements = StockMovement::query()
             ->with(['product', 'actor'])
@@ -64,6 +70,7 @@ class DashboardController extends Controller
             'expiringCounts' => $expiringCounts,
             'selectedExpiringCount' => $selectedExpiringCount,
             'lowStockCount' => $lowStockCount,
+            'pricingEnabled' => $pricingEnabled,
             'stockValueFormatted' => $stockValueFormatted,
             'recentMovements' => $recentMovements,
         ]);

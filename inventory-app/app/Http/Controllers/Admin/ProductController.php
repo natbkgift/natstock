@@ -7,6 +7,7 @@ use App\Http\Requests\ProductRequest;
 use App\Models\Category;
 use App\Models\Product;
 use App\Services\AuditLogger;
+use App\Support\PriceGuard;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -62,6 +63,17 @@ class ProductController extends Controller
         ]);
     }
 
+    public function show(Product $product): View
+    {
+        $this->authorize('view', $product);
+
+        $product->load(['category', 'batches' => fn ($query) => $query->orderBy('sub_sku')]);
+
+        return view('admin.products.show', [
+            'product' => $product,
+        ]);
+    }
+
     public function create(): View
     {
         $this->authorize('create', Product::class);
@@ -76,6 +88,7 @@ class ProductController extends Controller
         $this->authorize('create', Product::class);
 
         $data = $this->formatProductData($request->validated());
+        PriceGuard::strip($data);
 
         $product = Product::create($data);
 
@@ -110,6 +123,7 @@ class ProductController extends Controller
         $this->authorize('update', $product);
 
         $data = $this->formatProductData($request->validated());
+        PriceGuard::strip($data);
         $before = Arr::only($product->toArray(), ['sku', 'name', 'qty', 'reorder_point', 'is_active']);
 
         $product->update($data);

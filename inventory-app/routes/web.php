@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\ImportController;
 use App\Http\Controllers\Admin\MovementController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\ProductBatchController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\UserController;
@@ -27,6 +28,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
     // Products
     Route::resource('products', ProductController::class);
+    Route::get('products/{product}/batches', [ProductBatchController::class, 'index'])->name('products.batches.index');
+    Route::post('products/{product}/batches', [ProductBatchController::class, 'store'])->name('products.batches.store');
 
     // Categories
     Route::resource('categories', CategoryController::class);

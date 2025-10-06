@@ -1,0 +1,2 @@
+sku,name,category,qty,expire_date,reorder_point,note,is_active
+SKU-001,ชื่อสินค้า,หมวดหมู่,10,2025-12-31,5,หมายเหตุ,1

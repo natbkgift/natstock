@@ -70,6 +70,22 @@ class ProductReportService
      */
     public function valuation(array $filters, bool $paginate = true): LengthAwarePaginator|Collection
     {
+        if (!config('inventory.enable_price')) {
+            $query = $this->baseQuery($filters)
+                ->select([
+                    'products.id',
+                    'products.sku',
+                    'products.name',
+                    'products.category_id',
+                    'products.qty',
+                    'products.is_active',
+                ])
+                ->selectRaw('0 as total_value')
+                ->orderBy('sku');
+
+            return $this->execute($query, $paginate);
+        }
+
         $query = $this->baseQuery($filters)
             ->select([
                 'products.id',
@@ -91,6 +107,10 @@ class ProductReportService
      */
     public function calculateValuationTotal(Collection $products): float
     {
+        if (!config('inventory.enable_price')) {
+            return 0.0;
+        }
+
         return $products->sum(function (Product $product): float {
             $cost = (float) $product->cost_price;
             $qty = (int) $product->qty;
@@ -104,6 +124,10 @@ class ProductReportService
      */
     public function valuationTotal(array $filters): float
     {
+        if (!config('inventory.enable_price')) {
+            return 0.0;
+        }
+
         $total = $this->baseQuery($filters)
             ->selectRaw('COALESCE(SUM(qty * cost_price), 0) as aggregate_total')
             ->value('aggregate_total');
