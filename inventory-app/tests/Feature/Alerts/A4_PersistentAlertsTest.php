@@ -14,6 +14,10 @@ use function Pest\Laravel\postJson;
 
 uses(RefreshDatabase::class);
 
+afterEach(function (): void {
+    Carbon::setTestNow();
+});
+
 function createDashboardUser(): User
 {
     return User::factory()->create(['role' => 'admin']);
@@ -144,4 +148,65 @@ it('snoozes alerts until end of day and suppresses modal', function () {
     get(route('admin.dashboard'))
         ->assertOk()
         ->assertDontSee('แจ้งเตือนสถานะคลังสินค้า');
+});
+
+it('deduplicates alert states when the same payload hash is acknowledged repeatedly', function (): void {
+    Carbon::setTestNow('2024-05-05 09:00:00');
+
+    $user = createDashboardUser();
+    actingAs($user);
+    seedAlertFixtures();
+
+    $snapshot = app(AlertSnapshotService::class)->buildSnapshot();
+    $hash = $snapshot['low_stock']['payload_hash'];
+
+    postJson(route('admin.alerts.mark-read'), [
+        'type' => 'low_stock',
+        'payload_hash' => $hash,
+    ])->assertOk();
+
+    postJson(route('admin.alerts.mark-read'), [
+        'type' => 'low_stock',
+        'payload_hash' => $hash,
+    ])->assertOk();
+
+    expect(UserAlertState::query()
+        ->where('user_id', $user->id)
+        ->where('alert_type', 'low_stock')
+        ->where('payload_hash', $hash)
+        ->count())->toBe(1);
+});
+
+it('tracks alert state per user so other operators still receive the modal', function (): void {
+    Carbon::setTestNow('2024-05-06 08:30:00');
+
+    $admin = createDashboardUser();
+    $staff = User::factory()->create(['role' => 'staff']);
+
+    actingAs($admin);
+    seedAlertFixtures();
+
+    $snapshot = app(AlertSnapshotService::class)->buildSnapshot();
+    $expiringHash = $snapshot['expiring']['payload_hash'];
+    $lowHash = $snapshot['low_stock']['payload_hash'];
+
+    postJson(route('admin.alerts.mark-read'), [
+        'type' => 'expiring',
+        'payload_hash' => $expiringHash,
+    ])->assertOk();
+
+    postJson(route('admin.alerts.mark-read'), [
+        'type' => 'low_stock',
+        'payload_hash' => $lowHash,
+    ])->assertOk();
+
+    get(route('admin.dashboard'))->assertOk()->assertDontSee('แจ้งเตือนสถานะคลังสินค้า');
+
+    actingAs($staff);
+
+    get(route('admin.dashboard'))
+        ->assertOk()
+        ->assertSee('แจ้งเตือนสถานะคลังสินค้า');
+
+    expect(UserAlertState::query()->where('user_id', $staff->id)->count())->toBe(0);
 });

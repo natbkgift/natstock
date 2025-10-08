@@ -91,6 +91,29 @@ it('adjusts batch quantity and records movement', function () {
         ->and($result['movement']->qty)->toBe(15);
 });
 
+it('aggregates product quantity across multiple batches after movements', function (): void {
+    $user = createStaffUser();
+    actingAs($user);
+
+    $product = Product::factory()->create(['qty' => 0]);
+    ProductBatch::factory()->create([
+        'product_id' => $product->id,
+        'sub_sku' => 'LOT-A',
+        'qty' => 6,
+    ]);
+    ProductBatch::factory()->create([
+        'product_id' => $product->id,
+        'sub_sku' => 'LOT-B',
+        'qty' => 4,
+    ]);
+
+    $service = app(StockMovementService::class);
+    $service->receive($product->fresh(), 5, 'LOT-A', null, 'เติมล็อต A');
+    $service->issue($product->fresh(), 2, 'LOT-B', 'เบิกล็อต B');
+
+    expect($product->fresh()->qtyCurrent())->toBe(13);
+});
+
 it('prevents issuing more than available in a batch', function () {
     $user = createStaffUser();
     actingAs($user);
@@ -105,6 +128,23 @@ it('prevents issuing more than available in a batch', function () {
     $service = app(StockMovementService::class);
 
     expect(fn () => $service->issue($product->fresh(), 5, 'LOT-SMALL', 'ทดสอบ'))
+        ->toThrow(ValidationException::class);
+});
+
+it('rejects negative target quantity when adjusting a batch', function (): void {
+    $user = createStaffUser();
+    actingAs($user);
+
+    $product = Product::factory()->create(['qty' => 0]);
+    ProductBatch::factory()->create([
+        'product_id' => $product->id,
+        'sub_sku' => 'LOT-NEG',
+        'qty' => 5,
+    ]);
+
+    $service = app(StockMovementService::class);
+
+    expect(fn () => $service->adjust($product->fresh(), -1, 'LOT-NEG', 'ห้ามติดลบ'))
         ->toThrow(ValidationException::class);
 });
 
