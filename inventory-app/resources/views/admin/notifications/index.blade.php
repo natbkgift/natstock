@@ -21,7 +21,10 @@
             @forelse($notifications as $notification)
                 @php
                     $data = $notification->data;
-                    $summary = $data['payload']['summary'] ?? ['expiring' => [], 'low_stock' => ['enabled' => false, 'count' => 0, 'items' => []]];
+                    $summary = $data['payload']['summary'] ?? [
+                        'expiring' => ['enabled' => false, 'count' => 0, 'items' => [], 'days' => 0],
+                        'low_stock' => ['enabled' => false, 'count' => 0, 'items' => []],
+                    ];
                     $links = $data['payload']['links'] ?? [];
                     $isUnread = is_null($notification->read_at);
                 @endphp
@@ -36,22 +39,21 @@
                         <small class="text-muted">{{ $notification->created_at->timezone('Asia/Bangkok')->format('d/m/Y H:i') }}</small>
                     </div>
                     <div class="card-body">
-                        <h5 class="font-weight-bold">สินค้าใกล้หมดอายุ</h5>
-                        <ul class="mb-3">
-                            @forelse($summary['expiring'] as $bucket)
-                                <li>ภายใน {{ $bucket['days'] }} วัน: {{ $bucket['count'] }} รายการ
-                                    @if(!empty($bucket['items']))
-                                        <ul class="mt-1">
-                                            @foreach($bucket['items'] as $item)
-                                                <li>{{ $item['sku'] }} - {{ $item['name'] }} (หมดอายุ {{ $item['expire_date_thai'] }})</li>
-                                            @endforeach
-                                        </ul>
-                                    @endif
-                                </li>
-                            @empty
-                                <li>ไม่มีสินค้าใกล้หมดอายุในช่วงเวลาที่กำหนด</li>
-                            @endforelse
-                        </ul>
+                        <h5 class="font-weight-bold">ล็อตใกล้หมดอายุ</h5>
+                        @if($summary['expiring']['enabled'])
+                            <p>ภายใน {{ $summary['expiring']['days'] }} วัน: {{ $summary['expiring']['count'] }} ล็อต</p>
+                            @if(!empty($summary['expiring']['items']))
+                                <ul class="mb-3">
+                                    @foreach($summary['expiring']['items'] as $item)
+                                        <li>{{ $item['sku'] }} - {{ $item['name'] }} (ล็อต {{ $item['sub_sku'] ?? '-' }}) หมดอายุ {{ $item['expire_date_thai'] ?? '-' }}</li>
+                                    @endforeach
+                                </ul>
+                            @else
+                                <p class="text-muted">ยังไม่มีล็อตที่ใกล้หมดอายุในช่วงที่ตั้งไว้</p>
+                            @endif
+                        @else
+                            <p class="text-muted">ไม่ได้เปิดใช้งานการแจ้งเตือนล็อตใกล้หมดอายุ</p>
+                        @endif
                         <h5 class="font-weight-bold">สินค้าสต็อกต่ำ</h5>
                         @if($summary['low_stock']['enabled'])
                             <p>จำนวนทั้งหมด: {{ $summary['low_stock']['count'] }} รายการ</p>
@@ -68,7 +70,7 @@
                             <p class="text-muted">ไม่ได้เปิดการแจ้งเตือนสต็อกต่ำ</p>
                         @endif
                         <div class="mt-3">
-                            <a href="{{ $links['expiring'] ?? route('admin.reports.expiring') }}" class="btn btn-sm btn-outline-primary mr-2" target="_blank">ดูรายงานสินค้าใกล้หมดอายุ</a>
+                            <a href="{{ $links['expiring'] ?? route('admin.reports.expiring-batches') }}" class="btn btn-sm btn-outline-primary mr-2" target="_blank">ดูรายงานล็อตใกล้หมดอายุ</a>
                             <a href="{{ $links['low_stock'] ?? route('admin.reports.low-stock') }}" class="btn btn-sm btn-outline-primary" target="_blank">ดูรายงานสินค้าสต็อกต่ำ</a>
                         </div>
                     </div>

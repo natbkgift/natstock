@@ -12,23 +12,21 @@
     @endif
     <p>นี่คือสรุปสินค้าที่ใกล้หมดอายุและสต็อกต่ำล่าสุดจากระบบคลังสินค้า:</p>
 
-    <h3>สินค้าใกล้หมดอายุ</h3>
-    <ul>
-        @forelse($summary['expiring'] as $bucket)
-            <li>
-                ภายใน {{ $bucket['days'] }} วัน: {{ $bucket['count'] }} รายการ
-                @if(!empty($bucket['items']))
-                    <ul>
-                        @foreach($bucket['items'] as $item)
-                            <li>{{ $item['sku'] }} - {{ $item['name'] }} (หมดอายุ {{ $item['expire_date_thai'] }})</li>
-                        @endforeach
-                    </ul>
-                @endif
-            </li>
-        @empty
-            <li>ไม่มีรายการสินค้าใกล้หมดอายุ</li>
-        @endforelse
-    </ul>
+    <h3>ล็อตใกล้หมดอายุ</h3>
+    @if($summary['expiring']['enabled'])
+        <p>ภายใน {{ $summary['expiring']['days'] }} วัน: {{ $summary['expiring']['count'] }} ล็อต</p>
+        @if(!empty($summary['expiring']['items']))
+            <ul>
+                @foreach($summary['expiring']['items'] as $item)
+                    <li>{{ $item['sku'] }} - {{ $item['name'] }} (ล็อต {{ $item['sub_sku'] ?? '-' }}) หมดอายุ {{ $item['expire_date_thai'] ?? '-' }}</li>
+                @endforeach
+            </ul>
+        @else
+            <p>ยังไม่มีล็อตที่ใกล้หมดอายุในช่วงที่ตั้งไว้</p>
+        @endif
+    @else
+        <p>ไม่ได้เปิดใช้งานการแจ้งเตือนล็อตใกล้หมดอายุ</p>
+    @endif
 
     <h3>สินค้าสต็อกต่ำ</h3>
     @if($summary['low_stock']['enabled'])
@@ -49,7 +47,7 @@
     <p>
         สามารถดูรายละเอียดเพิ่มเติมได้ที่:
         <br>
-        - รายงานสินค้าใกล้หมดอายุ: <a href="{{ $appUrl ? $appUrl.'/admin/reports/expiring' : '#' }}">{{ $appUrl ? $appUrl.'/admin/reports/expiring' : 'รายงานสินค้าใกล้หมดอายุ' }}</a><br>
+        - รายงานล็อตใกล้หมดอายุ: <a href="{{ $appUrl ? $appUrl.'/admin/reports/expiring-batches' : '#' }}">{{ $appUrl ? $appUrl.'/admin/reports/expiring-batches' : 'รายงานล็อตใกล้หมดอายุ' }}</a><br>
         - รายงานสินค้าสต็อกต่ำ: <a href="{{ $appUrl ? $appUrl.'/admin/reports/low-stock' : '#' }}">{{ $appUrl ? $appUrl.'/admin/reports/low-stock' : 'รายงานสินค้าสต็อกต่ำ' }}</a>
     </p>
 

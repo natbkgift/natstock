@@ -185,7 +185,7 @@ if (!function_exists('route')) {
         return match ($name) {
             'admin.dashboard' => '/admin/dashboard',
             'admin.reports.index' => '/admin/reports',
-            'admin.reports.expiring' => '/admin/reports/expiring',
+            'admin.reports.expiring-batches' => '/admin/reports/expiring-batches',
             'admin.reports.low-stock' => '/admin/reports/low-stock',
             'admin.reports.valuation' => '/admin/reports/valuation',
             'admin.import.errors.download' => '/admin/import/error/' . ($parameters['token'] ?? ''),

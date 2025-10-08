@@ -39,7 +39,7 @@ class NotificationTestService
             $payload = [
                 'summary' => $summary,
                 'links' => [
-                    'expiring' => URL::route('admin.reports.expiring'),
+                    'expiring' => URL::route('admin.reports.expiring-batches'),
                     'low_stock' => URL::route('admin.reports.low-stock'),
                 ],
                 'is_test' => true,

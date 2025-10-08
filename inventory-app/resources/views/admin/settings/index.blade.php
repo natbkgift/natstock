@@ -24,9 +24,26 @@
                             <small class="form-text text-muted">ตัวอย่าง: 30,60,90</small>
                         </div>
                         <div class="form-group">
+                            <label for="expiring_days">จำนวนวันล่วงหน้าสำหรับแจ้งเตือนล็อตใกล้หมดอายุ</label>
+                            <input type="number" name="expiring_days" id="expiring_days" min="1" max="365" class="form-control" value="{{ old('expiring_days', $values['expiring_days']) }}" required>
+                            <small class="form-text text-muted">ค่าเริ่มต้น 30 วัน</small>
+                        </div>
+                        <div class="form-group">
+                            <div class="custom-control custom-switch">
+                                <input type="checkbox" class="custom-control-input" id="expiring_enabled" name="expiring_enabled" value="1" {{ old('expiring_enabled', $values['expiring_enabled']) ? 'checked' : '' }}>
+                                <label class="custom-control-label" for="expiring_enabled">เปิดการแจ้งเตือนล็อตใกล้หมดอายุในระบบ</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
                             <div class="custom-control custom-switch">
                                 <input type="checkbox" class="custom-control-input" id="notify_low_stock" name="notify_low_stock" value="1" {{ old('notify_low_stock', $values['notify_low_stock']) ? 'checked' : '' }}>
                                 <label class="custom-control-label" for="notify_low_stock">เปิดการแจ้งเตือนสต็อกต่ำ</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="custom-control custom-switch">
+                                <input type="checkbox" class="custom-control-input" id="low_stock_enabled" name="low_stock_enabled" value="1" {{ old('low_stock_enabled', $values['low_stock_enabled']) ? 'checked' : '' }}>
+                                <label class="custom-control-label" for="low_stock_enabled">แสดงป๊อปอัปแจ้งเตือนสต็อกต่ำบนแดชบอร์ด</label>
                             </div>
                         </div>
                         <div class="form-group">
