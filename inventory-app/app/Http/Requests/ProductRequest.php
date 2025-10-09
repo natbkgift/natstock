@@ -31,8 +31,7 @@ class ProductRequest extends FormRequest
             $uniqueSkuRule->ignore($productId);
         }
 
-        $pricingEnabled = (bool) config('inventory.enable_price');
-
+        $hasNewCategory = !empty($this->input('new_category'));
         return [
             'sku' => [
                 'required',
@@ -42,9 +41,10 @@ class ProductRequest extends FormRequest
                 $uniqueSkuRule,
             ],
             'name' => ['required', 'string', 'max:150'],
-            'category_id' => ['required', 'exists:categories,id'],
-            'cost_price' => $pricingEnabled ? ['numeric', 'min:0'] : ['nullable'],
-            'sale_price' => $pricingEnabled ? ['numeric', 'min:0'] : ['nullable'],
+            'category_id' => [$hasNewCategory ? 'nullable' : 'required', 'exists:categories,id'],
+            'new_category' => ['nullable', 'string', 'max:100'],
+            'cost_price' => ['numeric', 'min:0'],
+            'sale_price' => ['numeric', 'min:0'],
             'expire_date' => ['nullable', 'date_format:Y-m-d'],
             'reorder_point' => ['integer', 'min:0'],
             'qty' => ['integer', 'min:0'],
@@ -66,6 +66,8 @@ class ProductRequest extends FormRequest
             'name.max' => 'ชื่อสินค้าต้องไม่เกิน 150 ตัวอักษร',
             'category_id.required' => 'กรุณาเลือกหมวดหมู่สินค้า',
             'category_id.exists' => 'หมวดหมู่สินค้าที่เลือกไม่ถูกต้อง',
+            'new_category.string' => 'ชื่อหมวดหมู่ใหม่ต้องเป็นข้อความ',
+            'new_category.max' => 'ชื่อหมวดหมู่ใหม่ต้องไม่เกิน 100 ตัวอักษร',
             'cost_price.numeric' => 'ราคาทุนต้องเป็นตัวเลข',
             'cost_price.min' => 'ราคาทุนต้องมากกว่าหรือเท่ากับ 0',
             'sale_price.numeric' => 'ราคาขายต้องเป็นตัวเลข',

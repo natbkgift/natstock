@@ -51,6 +51,7 @@ class BatchResolver
 
     private function resolveUnspecifiedBatch(Product $product, bool $createIfMissing): ProductBatch
     {
+        // ใช้รูปแบบมาตรฐาน: `${SKU}-UNSPECIFIED`
         $subSku = $product->sku . '-UNSPECIFIED';
 
         $batch = ProductBatch::query()

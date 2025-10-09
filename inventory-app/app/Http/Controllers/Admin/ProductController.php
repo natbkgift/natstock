@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
@@ -7,7 +6,6 @@ use App\Http\Requests\ProductRequest;
 use App\Models\Category;
 use App\Models\Product;
 use App\Services\AuditLogger;
-use App\Support\PriceGuard;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +16,20 @@ class ProductController extends Controller
 {
     public function __construct(private readonly AuditLogger $auditLogger)
     {
+    }
+
+    public function ajaxCreateCategory(Request $request)
+    {
+        $this->authorize('create', Product::class);
+        $name = trim($request->input('name'));
+        if ($name === '') {
+            return response()->json(['error' => 'กรุณากรอกชื่อหมวดหมู่'], 422);
+        }
+        $category = Category::create([
+            'name' => $name,
+            'is_active' => true,
+        ]);
+        return response()->json(['id' => $category->id, 'name' => $category->name]);
     }
 
     public function index(Request $request): View
@@ -63,17 +75,6 @@ class ProductController extends Controller
         ]);
     }
 
-    public function show(Product $product): View
-    {
-        $this->authorize('view', $product);
-
-        $product->load(['category', 'batches' => fn ($query) => $query->orderBy('sub_sku')]);
-
-        return view('admin.products.show', [
-            'product' => $product,
-        ]);
-    }
-
     public function create(): View
     {
         $this->authorize('create', Product::class);
@@ -87,8 +88,23 @@ class ProductController extends Controller
     {
         $this->authorize('create', Product::class);
 
-        $data = $this->formatProductData($request->validated());
-        PriceGuard::strip($data);
+        $validated = $request->validated();
+        $data = $this->formatProductData($validated);
+
+        // If new_category is filled, create category and use its id
+        if (!empty($validated['new_category'])) {
+            $category = Category::create([
+                'name' => $validated['new_category'],
+                'is_active' => true,
+            ]);
+            $data['category_id'] = $category->id;
+        }
+
+        // Strip pricing when disabled
+        if (!config('inventory.enable_price')) {
+            $data['cost_price'] = 0;
+            $data['sale_price'] = null;
+        }
 
         $product = Product::create($data);
 
@@ -109,6 +125,12 @@ class ProductController extends Controller
             ->with('status', 'บันทึกข้อมูลสินค้าเรียบร้อย');
     }
 
+    public function show(Product $product): View
+    {
+        $this->authorize('view', $product);
+        return view('admin.products.show', compact('product'));
+    }
+
     public function edit(Product $product): View
     {
         $this->authorize('update', $product);
@@ -121,9 +143,13 @@ class ProductController extends Controller
     public function update(ProductRequest $request, Product $product): RedirectResponse
     {
         $this->authorize('update', $product);
-
         $data = $this->formatProductData($request->validated());
-        PriceGuard::strip($data);
+
+        // Strip pricing when disabled; keep when enabled
+        if (!config('inventory.enable_price')) {
+            $data['cost_price'] = 0;
+            $data['sale_price'] = null;
+        }
         $before = Arr::only($product->toArray(), ['sku', 'name', 'qty', 'reorder_point', 'is_active']);
 
         $product->update($data);
@@ -178,6 +204,15 @@ class ProductController extends Controller
             : null;
         $data['qty'] = (int) ($data['qty'] ?? 0);
         $data['reorder_point'] = (int) ($data['reorder_point'] ?? 0);
+
+        // Normalize pricing values
+        if (array_key_exists('cost_price', $data)) {
+            $data['cost_price'] = (float) ($data['cost_price'] ?? 0);
+        }
+        if (array_key_exists('sale_price', $data)) {
+            $sale = $data['sale_price'];
+            $data['sale_price'] = ($sale === null || $sale === '') ? null : (float) $sale;
+        }
 
         return $data;
     }

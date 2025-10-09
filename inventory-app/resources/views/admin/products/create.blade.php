@@ -39,6 +39,32 @@
                 searching: () => 'กำลังค้นหา...'
             }
         });
+
+        $('#btn-save-category').on('click', function () {
+            var $input = $('#new_category');
+            var name = $input.val().trim();
+            if (!name) {
+                $input.addClass('is-invalid');
+                $input.focus();
+                return;
+            }
+            $input.removeClass('is-invalid');
+            $.ajax({
+                url: "{{ route('admin.categories.ajax-create') }}",
+                method: 'POST',
+                data: { name: name, _token: "{{ csrf_token() }}" },
+                success: function (data) {
+                    var $select = $('#category_id');
+                    var option = new Option(data.name, data.id, true, true);
+                    $select.append(option).trigger('change');
+                    $input.val('');
+                },
+                error: function (xhr) {
+                    var msg = xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'เกิดข้อผิดพลาด';
+                    alert(msg);
+                }
+            });
+        });
     });
 </script>
 @endpush

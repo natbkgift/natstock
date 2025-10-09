@@ -30,8 +30,10 @@ $files = @(
   @{ local = Join-Path $repo 'inventory-app\app\Http\Controllers\Admin\SettingController.php'; remote = '/htdocs/natstock/app/Http/Controllers/Admin/SettingController.php' },
   @{ local = Join-Path $repo 'inventory-app\app\Http\Controllers\Admin\ImportController.php'; remote = '/htdocs/natstock/app/Http/Controllers/Admin/ImportController.php' },
   @{ local = Join-Path $repo 'inventory-app\app\Services\NotificationTestService.php'; remote = '/htdocs/natstock/app/Services/NotificationTestService.php' },
+  @{ local = Join-Path $repo 'inventory-app\resources\views\layouts\admin.blade.php'; remote = '/htdocs/natstock/resources/views/layouts/admin.blade.php' },
   @{ local = Join-Path $repo 'inventory-app\routes\web.php'; remote = '/htdocs/natstock/routes/web.php' },
   @{ local = Join-Path $repo 'deploy\maintenance.php'; remote = '/htdocs/maintenance.php' },
+  @{ local = Join-Path $repo 'deploy\diag.php'; remote = '/htdocs/diag.php' },
   @{ local = Join-Path $repo 'deploy\viewlog.php'; remote = '/htdocs/viewlog.php' }
 )
 

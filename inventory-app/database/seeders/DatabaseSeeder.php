@@ -11,10 +11,7 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->call([
-            CategorySeeder::class,
-            ProductSeeder::class,
-        ]);
+        // ติดตั้งใหม่: ไม่ใส่ตัวอย่างหมวดหมู่/สินค้า
 
         $user = User::firstOrCreate(
             ['email' => 'admin@example.com'],

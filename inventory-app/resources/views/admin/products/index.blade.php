@@ -22,12 +22,12 @@
     </div>
     <div class="card-body">
         <form method="GET" action="{{ route('admin.products.index') }}" class="mb-3">
-            <div class="form-row align-items-end">
-                <div class="form-group col-md-4">
+            <div class="form-row align-items-end flex-md-nowrap">
+                <div class="form-group col-md-4 col-12">
                     <label for="search">ค้นหา SKU/ชื่อสินค้า</label>
                     <input type="text" name="search" id="search" class="form-control" placeholder="ระบุรหัสหรือชื่อสินค้า" value="{{ $filters['search'] }}">
                 </div>
-                <div class="form-group col-md-3">
+                <div class="form-group col-md-3 col-12">
                     <label for="category_id">หมวดหมู่</label>
                     <select name="category_id" id="category_id" class="form-control select2" data-placeholder="เลือกหมวดหมู่">
                         <option value="">ทั้งหมด</option>
@@ -36,7 +36,7 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="form-group col-md-2">
+                <div class="form-group col-md-2 col-12">
                     <label for="status">สถานะ</label>
                     <select name="status" id="status" class="form-control">
                         <option value="">ทั้งหมด</option>
@@ -44,7 +44,7 @@
                         <option value="inactive" {{ $filters['status'] === 'inactive' ? 'selected' : '' }}>ปิดใช้งาน</option>
                     </select>
                 </div>
-                <div class="form-group col-md-2">
+                <div class="form-group col-md-2 col-12">
                     <label for="expiring">ใกล้หมดอายุ</label>
                     <select name="expiring" id="expiring" class="form-control">
                         <option value="">ทั้งหมด</option>
@@ -53,16 +53,16 @@
                         <option value="90" {{ $filters['expiring'] === 90 ? 'selected' : '' }}>ภายใน 90 วัน</option>
                     </select>
                 </div>
-                <div class="form-group col-md-1 text-center">
-                    <div class="custom-control custom-switch mt-4">
+                <div class="form-group col-12 col-md-auto text-center flex-grow-0" style="width:auto;">
+                    <div class="custom-control custom-switch mt-2 mt-md-4" style="white-space:nowrap;">
                         <input type="checkbox" class="custom-control-input" id="low_stock" name="low_stock" value="1" {{ $filters['low_stock'] ? 'checked' : '' }}>
                         <label class="custom-control-label" for="low_stock">สต็อกต่ำ</label>
                     </div>
                 </div>
             </div>
-            <div class="d-flex justify-content-end">
-                <button type="submit" class="btn btn-outline-primary mr-2">ค้นหา</button>
-                <a href="{{ route('admin.products.index') }}" class="btn btn-outline-secondary">ล้างตัวกรอง</a>
+            <div class="d-flex justify-content-end flex-wrap">
+                <button type="submit" class="btn btn-outline-primary mr-2 mb-2">ค้นหา</button>
+                <a href="{{ route('admin.products.index') }}" class="btn btn-outline-secondary mb-2">ล้างตัวกรอง</a>
             </div>
         </form>
 
@@ -94,7 +94,7 @@
                             <td>
                                 @if($product->expire_date)
                                     @php
-                                        $diff = now()->diffInDays($product->expire_date, false);
+                                        $diff = $product->days_to_expire;
                                     @endphp
                                     @if($diff < 0)
                                         <span class="badge badge-danger">หมดอายุแล้ว ({{ $product->expire_date->format('d/m/Y') }})</span>
@@ -117,20 +117,18 @@
                                 <span class="badge badge-{{ $product->is_active ? 'success' : 'secondary' }}">{{ $product->is_active ? 'ใช้งาน' : 'ปิดใช้งาน' }}</span>
                             </td>
                             <td class="text-right">
-                                <div class="btn-group btn-group-sm" role="group">
-                                    @can('view', $product)
-                                        <a href="{{ route('admin.products.show', $product) }}" class="btn btn-outline-primary">รายละเอียด</a>
-                                    @endcan
+                                <div class="btn-group btn-group-sm d-flex flex-wrap" role="group">
                                     @can('update', $product)
-                                        <a href="{{ route('admin.products.edit', $product) }}" class="btn btn-outline-secondary">แก้ไข</a>
+                                        <a href="{{ route('admin.products.edit', $product) }}" class="btn btn-outline-secondary mb-1 mr-1">แก้ไข</a>
                                     @endcan
                                     @can('delete', $product)
                                         <form action="{{ route('admin.products.destroy', $product) }}" method="POST" onsubmit="return confirm('ยืนยันการลบสินค้านี้หรือไม่?');" style="display: contents;">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="btn btn-outline-danger">ลบ</button>
+                                            <button type="submit" class="btn btn-outline-danger mb-1 mr-1">ลบ</button>
                                         </form>
                                     @endcan
+                                    <a href="{{ route('admin.products.show', $product) }}" class="btn btn-outline-primary mb-1">เพิ่มล็อต</a>
                                 </div>
                             </td>
                         </tr>
