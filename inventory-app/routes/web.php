@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\ImportExportController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -121,6 +122,11 @@ Route::middleware(['web','auth'])->prefix('admin')->name('admin.')->group(functi
     Route::get('reports/low-stock', [ReportController::class, 'lowStock'])->name('reports.low-stock');
     Route::get('reports/valuation', [ReportController::class, 'valuation'])->name('reports.valuation');
     Route::get('product-batches/expiring', [\App\Http\Controllers\Admin\ProductBatchController::class, 'expiring'])->name('product-batches.expiring');
+});
+
+Route::middleware(['web', 'auth'])->group(function () {
+    Route::get('/admin/import-export', [ImportExportController::class, 'index'])->name('import_export.index');
+    Route::post('/admin/import-export/preview', [ImportExportController::class, 'preview'])->name('import_export.preview');
 });
 
 // Remove auth-only duplication to preserve session for JSON endpoints
