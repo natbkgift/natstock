@@ -4,13 +4,18 @@ namespace App\Services;
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductBatch;
 use App\Models\StockMovement;
 use App\Models\User;
 use App\Support\PriceGuard;
 use Carbon\Carbon;
 use DateTimeImmutable;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 use ZipArchive;
@@ -35,6 +40,50 @@ class ImportService
 
     private const PRICE_COLUMNS = ['cost_price', 'sale_price'];
 
+    private const PROCESS_REQUIRED_HEADERS = ['sku', 'qty'];
+
+    private const PROCESS_HEADER_ALIASES = [
+        'sku' => 'sku',
+        'sku_code' => 'sku',
+        'product_sku' => 'sku',
+        'qty' => 'qty',
+        'quantity' => 'qty',
+        'จำนวน' => 'qty',
+        'lot' => 'lot_no',
+        'lot_no' => 'lot_no',
+        'lot number' => 'lot_no',
+        'lot_number' => 'lot_no',
+        'expire_date' => 'expire_date',
+        'expiry_date' => 'expire_date',
+        'expired_at' => 'expire_date',
+        'name' => 'name',
+        'product_name' => 'name',
+        'category' => 'category',
+        'category_name' => 'category',
+        'reorder_point' => 'reorder_point',
+        'reorder' => 'reorder_point',
+        'min_qty' => 'reorder_point',
+        'note' => 'note',
+        'remark' => 'note',
+        'is_active' => 'is_active',
+        'active' => 'is_active',
+        'enabled' => 'is_active',
+        'cost_price' => 'cost_price',
+        'cost' => 'cost_price',
+        'ต้นทุน' => 'cost_price',
+        'sale_price' => 'sale_price',
+        'price' => 'sale_price',
+        'ราคาขาย' => 'sale_price',
+    ];
+
+    private const PROCESS_IGNORED_HEADERS = ['cost_price', 'sale_price'];
+
+    private const PROCESS_CHUNK_SIZE = 1000;
+
+    private const MODE_UPSERT_REPLACE = 'upsert_replace';
+    private const MODE_UPSERT_DELTA = 'upsert_delta';
+    private const MODE_SKIP = 'skip';
+
     private readonly string $storagePath;
 
     private bool $priceColumnsDetected = false;
@@ -42,6 +91,59 @@ class ImportService
     public function __construct()
     {
         $this->storagePath = storage_path('app/tmp');
+    }
+
+    public function process(UploadedFile $file, string $mode, bool $isStrict): ImportResult
+    {
+        $mode = Str::of($mode)->lower()->toString();
+        if (!in_array($mode, [self::MODE_UPSERT_REPLACE, self::MODE_UPSERT_DELTA, self::MODE_SKIP], true)) {
+            throw new RuntimeException('โหมดการนำเข้าไม่ถูกต้อง');
+        }
+
+        $extension = strtolower($file->getClientOriginalExtension() ?: pathinfo($file->getClientOriginalName(), PATHINFO_EXTENSION));
+        if ($extension === 'xlsx') {
+            if (!class_exists('\\PhpOffice\\PhpSpreadsheet\\IOFactory')) {
+                throw new RuntimeException('ระบบยังไม่รองรับไฟล์ XLSX ในสภาพแวดล้อมนี้');
+            }
+
+            throw new RuntimeException('ยังไม่เปิดใช้งานการนำเข้าไฟล์ XLSX');
+        }
+
+        if ($extension !== 'csv') {
+            throw new RuntimeException('รองรับเฉพาะไฟล์ CSV สำหรับการนำเข้า');
+        }
+
+        $handle = fopen($file->getRealPath(), 'rb');
+        if ($handle === false) {
+            throw new RuntimeException('ไม่สามารถเปิดไฟล์สำหรับประมวลผลได้');
+        }
+
+        $result = new ImportResult();
+
+        try {
+            $headers = $this->readProcessRow($handle);
+            if ($headers === null) {
+                throw new RuntimeException('ไฟล์ไม่มีส่วนหัวสำหรับการนำเข้า');
+            }
+
+            $normalizedHeaders = $this->normalizeProcessHeaders($headers);
+            $this->assertProcessRequiredHeadersPresent($normalizedHeaders);
+
+            $result->ignored_columns = $this->collectProcessIgnoredColumns($normalizedHeaders, $headers);
+
+            /** @var LotService $lotService */
+            $lotService = app(LotService::class);
+
+            if ($isStrict) {
+                $this->processStrict($handle, $normalizedHeaders, $mode, $result, $lotService);
+            } else {
+                $this->processLenient($handle, $normalizedHeaders, $headers, $mode, $result, $lotService);
+            }
+
+            return $result;
+        } finally {
+            fclose($handle);
+        }
     }
 
     /**
@@ -860,6 +962,645 @@ class ImportService
         if (!is_dir($this->storagePath) && !@mkdir($this->storagePath, 0755, true) && !is_dir($this->storagePath)) {
             throw new RuntimeException('ไม่สามารถสร้างไดเรกทอรีจัดเก็บไฟล์ชั่วคราวได้');
         }
+    }
+
+    private function processStrict($handle, array $normalizedHeaders, string $mode, ImportResult $result, LotService $lotService): void
+    {
+        $productCache = [];
+        $batchCache = [];
+        $categoryCache = [];
+        $rowNumber = 1;
+        $snapshot = $this->snapshotResult($result);
+
+        try {
+            $processed = DB::transaction(function () use ($handle, $normalizedHeaders, $mode, $result, $lotService, &$productCache, &$batchCache, &$categoryCache, &$rowNumber) {
+                $processedRows = 0;
+
+                while (($row = $this->readProcessRow($handle)) !== null) {
+                    $rowNumber++;
+                    if ($this->isProcessRowEmpty($row)) {
+                        continue;
+                    }
+
+                    $cells = $this->mapProcessRow($row, $normalizedHeaders);
+                    $validation = $this->validateProcessRow($cells, $rowNumber);
+
+                    if ($validation['errors'] !== []) {
+                        throw new ImportStrictRowException($rowNumber, $validation['errors'], $row);
+                    }
+
+                    $this->applyProcessRow(
+                        $validation['normalized'],
+                        $mode,
+                        $result,
+                        $productCache,
+                        $batchCache,
+                        $categoryCache,
+                        $lotService
+                    );
+
+                    $processedRows++;
+                }
+
+                return $processedRows;
+            }, 3);
+
+            $result->rows_ok += $processed;
+        } catch (ImportStrictRowException $exception) {
+            $this->restoreResultSnapshot($result, $snapshot);
+            $result->rows_ok = 0;
+            $result->rows_error++;
+            $result->strict_rolled_back = true;
+
+            throw new ImportProcessingException($result, $exception->getMessage(), $exception);
+        } catch (Throwable $throwable) {
+            $this->restoreResultSnapshot($result, $snapshot);
+            $result->rows_ok = 0;
+            $result->strict_rolled_back = true;
+
+            throw new ImportProcessingException($result, 'ไม่สามารถประมวลผลไฟล์ได้: ' . $throwable->getMessage(), $throwable);
+        }
+    }
+
+    private function processLenient($handle, array $normalizedHeaders, array $rawHeaders, string $mode, ImportResult $result, LotService $lotService): void
+    {
+        $productCache = [];
+        $batchCache = [];
+        $categoryCache = [];
+        $rowNumber = 1;
+        $chunk = [];
+        $errorRows = [];
+
+        while (($row = $this->readProcessRow($handle)) !== null) {
+            $rowNumber++;
+            if ($this->isProcessRowEmpty($row)) {
+                continue;
+            }
+
+            $cells = $this->mapProcessRow($row, $normalizedHeaders);
+            $validation = $this->validateProcessRow($cells, $rowNumber);
+
+            if ($validation['errors'] !== []) {
+                $result->rows_error++;
+                $errorRows[] = [
+                    'row_number' => $rowNumber,
+                    'errors' => $validation['errors'],
+                    'raw' => $row,
+                ];
+                continue;
+            }
+
+            $chunk[] = [
+                'row_number' => $rowNumber,
+                'normalized' => $validation['normalized'],
+            ];
+
+            if (count($chunk) >= self::PROCESS_CHUNK_SIZE) {
+                $this->commitProcessChunk($chunk, $mode, $result, $productCache, $batchCache, $categoryCache, $lotService);
+                $result->rows_ok += count($chunk);
+                $chunk = [];
+            }
+        }
+
+        if ($chunk !== []) {
+            $this->commitProcessChunk($chunk, $mode, $result, $productCache, $batchCache, $categoryCache, $lotService);
+            $result->rows_ok += count($chunk);
+        }
+
+        if ($result->rows_error > 0) {
+            $result->error_csv_path = $this->exportProcessErrors($errorRows, $rawHeaders);
+        }
+    }
+
+    /**
+     * @param list<array{row_number: int, normalized: array<string, mixed>}> $chunk
+     */
+    private function commitProcessChunk(array $chunk, string $mode, ImportResult $result, array &$productCache, array &$batchCache, array &$categoryCache, LotService $lotService): void
+    {
+        $snapshot = $this->snapshotResult($result);
+
+        try {
+            DB::transaction(function () use ($chunk, $mode, $result, $lotService, &$productCache, &$batchCache, &$categoryCache) {
+                foreach ($chunk as $row) {
+                    $this->applyProcessRow(
+                        $row['normalized'],
+                        $mode,
+                        $result,
+                        $productCache,
+                        $batchCache,
+                        $categoryCache,
+                        $lotService
+                    );
+                }
+            }, 3);
+        } catch (Throwable $throwable) {
+            $this->restoreResultSnapshot($result, $snapshot);
+
+            throw new ImportProcessingException($result, 'ไม่สามารถบันทึกข้อมูลล็อตได้: ' . $throwable->getMessage(), $throwable);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @param array<string, Product> $productCache
+     * @param array<string, ProductBatch> $batchCache
+     * @param array<string, Category> $categoryCache
+     */
+    private function applyProcessRow(array $row, string $mode, ImportResult $result, array &$productCache, array &$batchCache, array &$categoryCache, LotService $lotService): void
+    {
+        $sku = $row['sku'];
+        $product = $productCache[$sku] ?? Product::query()->where('sku', $sku)->first();
+
+        if ($product === null) {
+            $categoryId = $this->resolveProcessCategoryId($row['category'] ?? null, null, $categoryCache);
+
+            $product = Product::query()->create([
+                'sku' => $sku,
+                'name' => $row['name'] ?? $sku,
+                'category_id' => $categoryId,
+                'reorder_point' => $row['reorder_point'] ?? 0,
+                'note' => $row['note'] ?? null,
+                'is_active' => $row['is_active'] ?? true,
+            ]);
+
+            $result->products_created++;
+            $productCache[$sku] = $product;
+        } else {
+            $productCache[$sku] = $product;
+
+            $updated = false;
+
+            if (isset($row['name']) && $row['name'] !== '' && $product->name !== $row['name']) {
+                $product->name = $row['name'];
+                $updated = true;
+            }
+
+            $categoryId = $this->resolveProcessCategoryId($row['category'] ?? null, $product, $categoryCache);
+            if ($categoryId !== null && $product->category_id !== $categoryId) {
+                $product->category_id = $categoryId;
+                $updated = true;
+            }
+
+            if (array_key_exists('reorder_point', $row) && $row['reorder_point'] !== null && $product->reorder_point !== $row['reorder_point']) {
+                $product->reorder_point = $row['reorder_point'];
+                $updated = true;
+            }
+
+            if (array_key_exists('note', $row) && $row['note'] !== null && $product->note !== $row['note']) {
+                $product->note = $row['note'];
+                $updated = true;
+            }
+
+            if (array_key_exists('is_active', $row) && $row['is_active'] !== null && $product->is_active !== $row['is_active']) {
+                $product->is_active = $row['is_active'];
+                $updated = true;
+            }
+
+            if ($updated) {
+                $product->save();
+                $result->products_updated++;
+                $product->refresh();
+                $productCache[$sku] = $product;
+            }
+        }
+
+        $lotNo = $row['lot_no'] ?? null;
+        if ($lotNo === null || $lotNo === '') {
+            $lotNo = $lotService->nextFor($product);
+        }
+
+        $batchKey = $product->getKey() . '::' . $lotNo;
+        $batch = $batchCache[$batchKey] ?? ProductBatch::query()
+            ->where('product_id', $product->getKey())
+            ->where('lot_no', $lotNo)
+            ->first();
+
+        $qtyChanged = false;
+
+        if ($batch === null) {
+            $batch = new ProductBatch();
+            $batch->product_id = $product->getKey();
+            $batch->lot_no = $lotNo;
+            $batch->qty = $row['qty'];
+            $batch->expire_date = $row['expire_date'] ?? null;
+            $batch->note = $row['note'] ?? null;
+            $batch->is_active = $row['is_active'] ?? true;
+            $batch->received_at = now();
+            $batch->save();
+
+            $result->batches_created++;
+            $batchCache[$batchKey] = $batch;
+            $qtyChanged = true;
+
+            if ($row['qty'] > 0) {
+                $this->createProcessMovement(
+                    $product,
+                    $batch,
+                    'receive',
+                    $row['qty'],
+                    $this->buildProcessReceiveNote($row['qty'])
+                );
+                $result->movements_created++;
+            }
+        } else {
+            if ($mode === self::MODE_SKIP) {
+                $batchCache[$batchKey] = $batch;
+
+                return;
+            }
+
+            $beforeQty = (int) $batch->qty;
+            $movementType = null;
+            $movementQty = 0;
+            $movementNote = null;
+
+            if ($mode === self::MODE_UPSERT_DELTA) {
+                $batch->qty = $beforeQty + $row['qty'];
+                if ($row['qty'] > 0) {
+                    $movementType = 'receive';
+                    $movementQty = $row['qty'];
+                    $movementNote = $this->buildProcessReceiveNote($row['qty']);
+                }
+            } else {
+                $batch->qty = $row['qty'];
+                $delta = $row['qty'] - $beforeQty;
+                if ($delta !== 0) {
+                    $movementType = 'adjust';
+                    $movementQty = abs($delta);
+                    $movementNote = $this->buildProcessAdjustNote($beforeQty, $row['qty']);
+                }
+            }
+
+            if (array_key_exists('expire_date', $row)) {
+                $batch->expire_date = $row['expire_date'];
+            }
+
+            if (array_key_exists('note', $row) && $row['note'] !== null) {
+                $batch->note = $row['note'];
+            }
+
+            if (array_key_exists('is_active', $row) && $row['is_active'] !== null) {
+                $batch->is_active = $row['is_active'];
+            }
+
+            $dirty = $batch->isDirty();
+            if ($dirty) {
+                $batch->save();
+                $result->batches_updated++;
+            }
+
+            if ($movementType !== null && $movementQty > 0) {
+                $this->createProcessMovement($product, $batch, $movementType, $movementQty, $movementNote);
+                $result->movements_created++;
+            }
+
+            $batchCache[$batchKey] = $batch;
+            $qtyChanged = $qtyChanged || ($movementType !== null && $movementQty > 0) || ($mode === self::MODE_UPSERT_DELTA && $row['qty'] === 0 && $beforeQty !== $batch->qty);
+        }
+
+        if ($qtyChanged) {
+            $this->refreshProcessProductQty($product);
+            $productCache[$sku] = $product->fresh();
+        }
+    }
+
+    private function resolveProcessCategoryId(?string $name, ?Product $product, array &$categoryCache): int
+    {
+        if ($name === null || $name === '') {
+            if ($product !== null) {
+                return (int) $product->category_id;
+            }
+
+            if (!isset($categoryCache['__default__'])) {
+                $default = Category::query()->orderBy('id')->first();
+                if ($default === null) {
+                    $default = Category::query()->create([
+                        'name' => 'ทั่วไป',
+                        'is_active' => true,
+                    ]);
+                }
+
+                $categoryCache['__default__'] = $default;
+            }
+
+            return (int) $categoryCache['__default__']->getKey();
+        }
+
+        $key = Str::of($name)->lower()->toString();
+
+        if (!isset($categoryCache[$key])) {
+            $categoryCache[$key] = Category::query()->firstOrCreate([
+                'name' => $name,
+            ], [
+                'note' => null,
+                'is_active' => true,
+            ]);
+        }
+
+        return (int) $categoryCache[$key]->getKey();
+    }
+
+    private function createProcessMovement(Product $product, ProductBatch $batch, string $type, int $qty, ?string $note = null): void
+    {
+        StockMovement::create([
+            'product_id' => $product->getKey(),
+            'batch_id' => $batch->getKey(),
+            'type' => $type,
+            'qty' => $qty,
+            'note' => $note,
+            'actor_id' => Auth::id(),
+            'happened_at' => now(),
+        ]);
+    }
+
+    private function refreshProcessProductQty(Product $product): void
+    {
+        $total = ProductBatch::query()
+            ->where('product_id', $product->getKey())
+            ->where('is_active', true)
+            ->sum('qty');
+
+        $product->qty = (int) $total;
+        $product->save();
+    }
+
+    /**
+     * @return array<int, string>|null
+     */
+    private function readProcessRow($handle): ?array
+    {
+        $row = fgetcsv($handle);
+
+        if ($row === false) {
+            return null;
+        }
+
+        return array_map(static fn ($value) => is_string($value) ? trim($value) : $value, $row);
+    }
+
+    /**
+     * @param array<int, string> $headers
+     * @return array<int, string>
+     */
+    private function normalizeProcessHeaders(array $headers): array
+    {
+        $normalized = [];
+        foreach ($headers as $header) {
+            $normalized[] = $this->normalizeProcessHeader($header);
+        }
+
+        return $normalized;
+    }
+
+    private function normalizeProcessHeader(?string $header): string
+    {
+        $header = $header ?? '';
+        $header = preg_replace('/^\xEF\xBB\xBF/u', '', $header) ?? '';
+        $header = trim($header);
+        $normalized = Str::of($header)->lower()->replace(['-', ' '], '_')->toString();
+
+        return self::PROCESS_HEADER_ALIASES[$normalized] ?? $normalized;
+    }
+
+    /**
+     * @param array<int, string> $normalizedHeaders
+     * @param array<int, string> $originalHeaders
+     * @return list<string>
+     */
+    private function collectProcessIgnoredColumns(array $normalizedHeaders, array $originalHeaders): array
+    {
+        $ignored = [];
+        foreach ($normalizedHeaders as $index => $name) {
+            if (in_array($name, self::PROCESS_IGNORED_HEADERS, true)) {
+                $ignored[] = $originalHeaders[$index] ?? $name;
+            }
+        }
+
+        return array_values(array_unique(array_filter($ignored)));
+    }
+
+    /**
+     * @param array<int, string> $normalizedHeaders
+     */
+    private function assertProcessRequiredHeadersPresent(array $normalizedHeaders): void
+    {
+        $present = array_filter(array_unique($normalizedHeaders));
+        foreach (self::PROCESS_REQUIRED_HEADERS as $required) {
+            if (!in_array($required, $present, true)) {
+                throw new RuntimeException(sprintf('ไม่พบคอลัมน์ %s ในไฟล์', $required));
+            }
+        }
+    }
+
+    /**
+     * @param array<int, string> $row
+     * @param array<int, string> $normalizedHeaders
+     * @return array<string, string>
+     */
+    private function mapProcessRow(array $row, array $normalizedHeaders): array
+    {
+        $cells = [];
+        foreach ($normalizedHeaders as $index => $header) {
+            if ($header === '') {
+                continue;
+            }
+
+            $cells[$header] = isset($row[$index]) ? trim((string) $row[$index]) : '';
+        }
+
+        return $cells;
+    }
+
+    /**
+     * @param array<int, string> $row
+     */
+    private function isProcessRowEmpty(array $row): bool
+    {
+        foreach ($row as $value) {
+            if (trim((string) $value) !== '') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param array<string, string> $cells
+     * @return array{errors: list<string>, normalized: array<string, mixed>}
+     */
+    private function validateProcessRow(array $cells, int $rowNumber): array
+    {
+        $errors = [];
+        $normalized = [];
+
+        $sku = trim((string) ($cells['sku'] ?? ''));
+        if ($sku === '') {
+            $errors[] = 'รหัสสินค้า (sku) จำเป็น';
+        } else {
+            $normalized['sku'] = $sku;
+        }
+
+        $qtyRaw = trim((string) ($cells['qty'] ?? ''));
+        if ($qtyRaw === '' || !ctype_digit($qtyRaw)) {
+            $errors[] = 'จำนวนต้องเป็นจำนวนเต็มไม่ติดลบ';
+        } else {
+            $normalized['qty'] = (int) $qtyRaw;
+        }
+
+        $lotRaw = trim((string) ($cells['lot_no'] ?? ''));
+        if ($lotRaw === '') {
+            $normalized['lot_no'] = null;
+        } elseif (mb_strlen($lotRaw) > 16) {
+            $errors[] = 'LOT ยาวเกินกำหนด (สูงสุด 16)';
+        } else {
+            $normalized['lot_no'] = $lotRaw;
+        }
+
+        if (array_key_exists('expire_date', $cells)) {
+            $expireRaw = trim((string) ($cells['expire_date'] ?? ''));
+            if ($expireRaw === '') {
+                $normalized['expire_date'] = null;
+            } else {
+                $date = Carbon::createFromFormat('Y-m-d', $expireRaw);
+                if ($date === false || $date->format('Y-m-d') !== $expireRaw) {
+                    $errors[] = 'รูปแบบวันหมดอายุต้องเป็น YYYY-MM-DD';
+                } else {
+                    $normalized['expire_date'] = $date->format('Y-m-d');
+                }
+            }
+        }
+
+        if (array_key_exists('name', $cells)) {
+            $name = trim((string) ($cells['name'] ?? ''));
+            if ($name !== '') {
+                $normalized['name'] = $name;
+            }
+        }
+
+        if (array_key_exists('category', $cells)) {
+            $category = trim((string) ($cells['category'] ?? ''));
+            if ($category !== '') {
+                $normalized['category'] = $category;
+            }
+        }
+
+        if (array_key_exists('reorder_point', $cells)) {
+            $reorderRaw = trim((string) ($cells['reorder_point'] ?? ''));
+            if ($reorderRaw === '') {
+                // no action
+            } elseif (!ctype_digit($reorderRaw)) {
+                $errors[] = 'จุดสั่งซื้อซ้ำต้องเป็นจำนวนเต็มไม่ติดลบ';
+            } else {
+                $normalized['reorder_point'] = (int) $reorderRaw;
+            }
+        }
+
+        if (array_key_exists('note', $cells)) {
+            $note = trim((string) ($cells['note'] ?? ''));
+            if ($note !== '') {
+                $normalized['note'] = $note;
+            }
+        }
+
+        if (array_key_exists('is_active', $cells)) {
+            $flag = trim((string) ($cells['is_active'] ?? ''));
+            if ($flag !== '') {
+                if ($flag === '1' || Str::lower($flag) === 'true') {
+                    $normalized['is_active'] = true;
+                } elseif ($flag === '0' || Str::lower($flag) === 'false') {
+                    $normalized['is_active'] = false;
+                } else {
+                    $errors[] = 'สถานะการใช้งานต้องเป็น 1 หรือ 0';
+                }
+            }
+        }
+
+        return [
+            'errors' => $errors,
+            'normalized' => $normalized,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function snapshotResult(ImportResult $result): array
+    {
+        return [
+            'products_created' => $result->products_created,
+            'products_updated' => $result->products_updated,
+            'batches_created' => $result->batches_created,
+            'batches_updated' => $result->batches_updated,
+            'movements_created' => $result->movements_created,
+            'rows_ok' => $result->rows_ok,
+            'rows_error' => $result->rows_error,
+            'error_csv_path' => $result->error_csv_path,
+            'ignored_columns' => $result->ignored_columns,
+            'strict_rolled_back' => $result->strict_rolled_back,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $snapshot
+     */
+    private function restoreResultSnapshot(ImportResult $result, array $snapshot): void
+    {
+        foreach ($snapshot as $key => $value) {
+            $result->{$key} = $value;
+        }
+    }
+
+    /**
+     * @param list<array{row_number: int, errors: list<string>, raw: array<int, string>}> $errorRows
+     */
+    private function exportProcessErrors(array $errorRows, array $headers): ?string
+    {
+        if ($errorRows === []) {
+            return null;
+        }
+
+        $this->ensureTmpDirectory();
+
+        $filename = 'tmp/import_errors_' . now()->format('Ymd_His') . '_' . Str::random(6) . '.csv';
+        $handle = fopen('php://temp', 'w+');
+
+        $headerRow = $headers;
+        $headerRow[] = 'error_reason';
+        fputcsv($handle, $headerRow);
+
+        foreach ($errorRows as $errorRow) {
+            $raw = $errorRow['raw'];
+            $line = [];
+            foreach ($headers as $index => $_header) {
+                $line[] = $raw[$index] ?? '';
+            }
+            $line[] = implode('; ', $errorRow['errors']);
+            fputcsv($handle, $line);
+        }
+
+        rewind($handle);
+        $contents = stream_get_contents($handle) ?: '';
+        fclose($handle);
+
+        Storage::disk('local')->put($filename, $contents);
+
+        return $filename;
+    }
+
+    private function ensureTmpDirectory(): void
+    {
+        Storage::disk('local')->makeDirectory('tmp');
+    }
+
+    private function buildProcessAdjustNote(int $before, int $after): string
+    {
+        return sprintf('นำเข้าไฟล์: ปรับจาก %d → %d', $before, $after);
+    }
+
+    private function buildProcessReceiveNote(int $qty): string
+    {
+        return sprintf('นำเข้าไฟล์: รับเข้า +%d', $qty);
     }
 
     private function storeUploadedFile(mixed $file, string $extension): string

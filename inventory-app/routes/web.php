@@ -127,6 +127,10 @@ Route::middleware(['web','auth'])->prefix('admin')->name('admin.')->group(functi
 Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/admin/import-export', [ImportExportController::class, 'index'])->name('import_export.index');
     Route::post('/admin/import-export/preview', [ImportExportController::class, 'preview'])->name('import_export.preview');
+    Route::post('/admin/import-export/process', [ImportExportController::class, 'process'])->name('import_export.process');
+    Route::get('/admin/import-export/error-csv', [ImportExportController::class, 'downloadErrorCsv'])
+        ->middleware('signed')
+        ->name('import_export.error_csv');
 });
 
 // Remove auth-only duplication to preserve session for JSON endpoints
