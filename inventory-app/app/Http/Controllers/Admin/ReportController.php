@@ -52,7 +52,7 @@ class ReportController extends Controller
             'batches' => $batches,
             'categories' => $categories,
             'filters' => $filters,
-            'dayOptions' => [7, 30, 60, 90],
+            'dayOptions' => $this->expiringDayOptions(),
         ]);
     }
 
@@ -130,14 +130,26 @@ class ReportController extends Controller
     }
 
     /**
-     * @return array{days: int, category_id: int, search: string, active_only: bool}
+     * @return array{days: int|string, category_id: int, search: string, active_only: bool}
      */
     private function prepareExpiringBatchFilters(Request $request): array
     {
-        $allowed = [7, 30, 60, 90];
-        $days = $request->integer('days', 30);
-        if (! in_array($days, $allowed, true)) {
-            $days = 30;
+        $allowed = collect($this->expiringDayOptions())
+            ->pluck('value')
+            ->filter(static fn ($value) => is_numeric($value))
+            ->map(static fn ($value) => (int) $value)
+            ->all();
+        $defaultDays = (int) config('inventory.alerts.default_expiring_days', 30);
+        if (!in_array($defaultDays, $allowed, true)) {
+            $defaultDays = 30;
+        }
+        $rawDays = $request->query('days');
+
+        if ($rawDays === 'expired') {
+            $days = 'expired';
+        } else {
+            $candidate = $request->integer('days', $defaultDays);
+            $days = in_array($candidate, $allowed, true) ? $candidate : $defaultDays;
         }
 
         return [
@@ -218,15 +230,23 @@ class ReportController extends Controller
 
     private function buildExpiringBatchesQuery(array $filters): Builder
     {
+        $days = $filters['days'];
         $query = ProductBatch::query()
             ->with(['product.category'])
-            ->expiringIn($filters['days'])
             ->when($filters['active_only'], fn (Builder $builder) => $builder->active())
             ->whereHas('product', function (Builder $productQuery) use ($filters): void {
                 $productQuery
                     ->when($filters['active_only'], fn (Builder $builder) => $builder->where('is_active', true))
                     ->when($filters['category_id'] > 0, fn (Builder $builder) => $builder->where('category_id', $filters['category_id']));
             });
+
+        if ($days === 'expired') {
+            $query
+                ->whereNotNull('expire_date')
+                ->where('expire_date', '<', now()->startOfDay());
+        } else {
+            $query->expiringIn((int) $days);
+        }
 
         if ($filters['search'] !== '') {
             $like = '%' . $filters['search'] . '%';
@@ -273,10 +293,25 @@ class ReportController extends Controller
         return $query;
     }
 
+    /**
+     * @return array<int, array{value: int|string, label: string}>
+     */
+    private function expiringDayOptions(): array
+    {
+        return [
+            ['value' => 7, 'label' => 'ภายใน 7 วัน'],
+            ['value' => 30, 'label' => 'ภายใน 30 วัน'],
+            ['value' => 60, 'label' => 'ภายใน 60 วัน'],
+            ['value' => 90, 'label' => 'ภายใน 90 วัน'],
+            ['value' => 'expired', 'label' => 'หมดอายุแล้ว'],
+        ];
+    }
+
     protected function exportExpiringBatchesCsv(Collection $batches, array $filters)
     {
-        $days = (int) ($filters['days'] ?? 30);
-        $filename = sprintf('expiring_batches_%dd_%s.csv', $days, Carbon::today()->format('Ymd'));
+        $days = $filters['days'] ?? (int) config('inventory.alerts.default_expiring_days', 30);
+        $rangeSlug = is_numeric($days) ? ((int) $days . 'd') : (string) $days;
+        $filename = sprintf('expiring_batches_%s_%s.csv', $rangeSlug, Carbon::today()->format('Ymd'));
 
         $rows = $batches->map(function (ProductBatch $batch): array {
             $product = $batch->product;

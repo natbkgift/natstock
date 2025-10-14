@@ -16,5 +16,10 @@ return [
         'email' => 'อีเมล',
         'line' => 'LINE Notify',
     ],
+    'alerts' => [
+        'low_stock_enabled' => true,
+        'expiring_enabled' => true,
+        'default_expiring_days' => 30,
+    ],
     'enable_price' => (bool) env('INVENTORY_ENABLE_PRICE', false),
 ];

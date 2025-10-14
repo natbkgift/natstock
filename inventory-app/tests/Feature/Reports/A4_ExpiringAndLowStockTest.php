@@ -53,12 +53,21 @@ it('filters expiring batches by days and exports CSV without prices', function (
         'is_active' => true,
     ]);
 
+    ProductBatch::factory()->create([
+        'product_id' => $product->id,
+        'sub_sku' => 'LOT-EXPIRED',
+        'expire_date' => Carbon::now()->subDays(5),
+        'qty' => 4,
+        'is_active' => true,
+    ]);
+
     $response = get(route('admin.reports.expiring-batches', ['days' => 30]));
 
     $response->assertOk()
         ->assertSee('LOT-10')
         ->assertSee('LOT-20')
-        ->assertDontSee('LOT-40');
+        ->assertDontSee('LOT-40')
+        ->assertDontSee('LOT-EXPIRED');
 
     $csvResponse = get(route('admin.reports.expiring-batches', ['days' => 30, 'export' => 'csv']));
     $csvResponse->assertOk();
@@ -66,7 +75,21 @@ it('filters expiring batches by days and exports CSV without prices', function (
     $content = $csvResponse->streamedContent();
     expect($content)->toContain('sku,name,lot_no,expire_date,qty,category')
         ->and($content)->toContain('LOT-10')
-        ->and($content)->not->toContain('LOT-40');
+        ->and($content)->not->toContain('LOT-40')
+        ->and($content)->not->toContain('LOT-EXPIRED');
+
+    $expiredResponse = get(route('admin.reports.expiring-batches', ['days' => 'expired']));
+
+    $expiredResponse->assertOk()
+        ->assertSee('LOT-EXPIRED')
+        ->assertDontSee('LOT-10');
+
+    $expiredCsv = get(route('admin.reports.expiring-batches', ['days' => 'expired', 'export' => 'csv']));
+    $expiredCsv->assertOk();
+
+    $expiredContent = $expiredCsv->streamedContent();
+    expect($expiredContent)->toContain('LOT-EXPIRED')
+        ->and($expiredContent)->not->toContain('LOT-10');
 });
 
 it('lists low stock products with aggregated quantities and exports CSV', function () {
