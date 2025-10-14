@@ -35,6 +35,14 @@
                             <dt class="col-sm-4">หมวดหมู่</dt>
                             <dd class="col-sm-8">{{ $product->category->name ?? '-' }}</dd>
 
+                            @if(config('inventory.enable_price'))
+                                <dt class="col-sm-4">ราคาทุน</dt>
+                                <dd class="col-sm-8">{{ number_format((float) $product->cost_price, 2, '.', ',') }}</dd>
+
+                                <dt class="col-sm-4">ราคาขาย</dt>
+                                <dd class="col-sm-8">{{ number_format((float) $product->sale_price, 2, '.', ',') }}</dd>
+                            @endif
+
                             <dt class="col-sm-4">สถานะ</dt>
                             <dd class="col-sm-8">
                                 <span class="badge badge-{{ $product->is_active ? 'success' : 'secondary' }}">{{ $product->is_active ? 'ใช้งาน' : 'ปิดใช้งาน' }}</span>

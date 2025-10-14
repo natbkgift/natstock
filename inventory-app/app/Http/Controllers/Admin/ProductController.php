@@ -6,6 +6,7 @@ use App\Http\Requests\ProductRequest;
 use App\Models\Category;
 use App\Models\Product;
 use App\Services\AuditLogger;
+use App\Support\PriceGuard;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -89,6 +90,7 @@ class ProductController extends Controller
         $this->authorize('create', Product::class);
 
         $validated = $request->validated();
+        PriceGuard::strip($validated);
         $data = $this->formatProductData($validated);
 
         // If new_category is filled, create category and use its id
@@ -98,12 +100,6 @@ class ProductController extends Controller
                 'is_active' => true,
             ]);
             $data['category_id'] = $category->id;
-        }
-
-        // Strip pricing when disabled
-        if (!config('inventory.enable_price')) {
-            $data['cost_price'] = 0;
-            $data['sale_price'] = 0;
         }
 
         $product = Product::create($data);
@@ -143,13 +139,9 @@ class ProductController extends Controller
     public function update(ProductRequest $request, Product $product): RedirectResponse
     {
         $this->authorize('update', $product);
-        $data = $this->formatProductData($request->validated());
-
-        // Strip pricing when disabled; keep when enabled
-        if (!config('inventory.enable_price')) {
-            $data['cost_price'] = 0;
-            $data['sale_price'] = 0;
-        }
+        $validated = $request->validated();
+        PriceGuard::strip($validated);
+        $data = $this->formatProductData($validated);
         $before = Arr::only($product->toArray(), ['sku', 'name', 'qty', 'reorder_point', 'is_active']);
 
         $product->update($data);

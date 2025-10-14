@@ -32,7 +32,7 @@ class ProductRequest extends FormRequest
         }
 
         $hasNewCategory = !empty($this->input('new_category'));
-        return [
+        $rules = [
             'sku' => [
                 'required',
                 'string',
@@ -43,14 +43,19 @@ class ProductRequest extends FormRequest
             'name' => ['required', 'string', 'max:150'],
             'category_id' => [$hasNewCategory ? 'nullable' : 'required', 'exists:categories,id'],
             'new_category' => ['nullable', 'string', 'max:100'],
-            'cost_price' => ['numeric', 'min:0'],
-            'sale_price' => ['numeric', 'min:0'],
             'expire_date' => ['nullable', 'date_format:Y-m-d'],
             'reorder_point' => ['integer', 'min:0'],
             'qty' => ['integer', 'min:0'],
             'is_active' => ['boolean'],
             'note' => ['nullable', 'string'],
         ];
+
+        if (config('inventory.enable_price')) {
+            $rules['cost_price'] = ['nullable', 'numeric', 'min:0'];
+            $rules['sale_price'] = ['nullable', 'numeric', 'min:0'];
+        }
+
+        return $rules;
     }
 
     public function messages(): array
