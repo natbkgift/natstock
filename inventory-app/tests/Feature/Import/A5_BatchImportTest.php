@@ -125,7 +125,7 @@ it('upserts batches in replace mode and records adjustments', function (): void 
 
     expect($result['summary']['updated'])->toBe(1)
         ->and($product->qty)->toBe(11)
-        ->and($movement?->type)->toBe('out')
+        ->and($movement?->type)->toBe('issue')
         ->and($movement?->qty)->toBe(9)
         ->and($movement?->note)->toContain('Δ-9');
 
@@ -163,7 +163,7 @@ it('upserts batches in delta mode and records receive movements', function (): v
 
     expect($result['summary']['updated'])->toBe(1)
         ->and($product->qty)->toBe(12)
-        ->and($movement?->type)->toBe('in')
+        ->and($movement?->type)->toBe('receive')
         ->and($movement?->qty)->toBe(8)
         ->and($movement?->note)->toContain('Δ+8');
 

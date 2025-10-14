@@ -11,7 +11,7 @@ return new class extends \Illuminate\Database\Migrations\Migration
                 ->cascadeOnUpdate()
                 ->restrictOnDelete()
                 ->comment('สินค้า');
-            $table->enum('type', ['in', 'out', 'adjust'])->comment('ประเภทการเคลื่อนไหว');
+            $table->enum('type', ['receive', 'issue', 'adjust'])->comment('ประเภทการเคลื่อนไหว');
             $table->unsignedInteger('qty')->comment('จำนวน');
             $table->text('note')->nullable()->comment('หมายเหตุ');
             $table->foreignId('actor_id')

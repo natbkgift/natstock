@@ -10,90 +10,124 @@ use Illuminate\Validation\ValidationException;
 
 class BatchResolver
 {
-    public const UNSPECIFIED_TOKEN = '__UNSPECIFIED__';
+    public function __construct(private readonly LotService $lotService)
+    {
+    }
 
-    public function resolveForProduct(
+    public function resolveForReceive(
         Product $product,
-        ?string $lotNo,
         ?Carbon $expireDate,
+        ?string $note = null,
         bool $createIfMissing = true
     ): ProductBatch {
+        $normalizedExpireDate = $expireDate?->copy()->startOfDay();
+
+        if ($normalizedExpireDate !== null) {
+            $existing = ProductBatch::query()
+                ->where('product_id', $product->id)
+                ->where('is_active', true)
+                ->whereDate('expire_date', $normalizedExpireDate->toDateString())
+                ->orderBy('received_at')
+                ->orderBy('id')
+                ->first();
+
+            if ($existing !== null) {
+                return $existing;
+            }
+        }
+
+        if (! $createIfMissing) {
+            throw ValidationException::withMessages([
+                'lot_no' => 'ไม่พบล็อตที่ตรงกับวันหมดอายุที่ระบุ',
+            ]);
+        }
+
+        $lotNo = $this->lotService->nextFor($product);
+
+        return ProductBatch::create([
+            'product_id' => $product->id,
+            'lot_no' => $lotNo,
+            'expire_date' => $normalizedExpireDate,
+            'qty' => 0,
+            'note' => $note !== null ? Str::of($note)->squish()->limit(255)->toString() : null,
+            'received_at' => now(),
+            'is_active' => true,
+        ]);
+    }
+
+    public function resolveForIssue(Product $product, ?string $lotNo = null): ProductBatch
+    {
         $normalized = $this->normalizeLotNo($lotNo);
-        $normalizedExpireDate = $this->normalizeExpireDate($expireDate);
+
+        if ($normalized !== null) {
+            $batch = ProductBatch::query()
+                ->where('product_id', $product->id)
+                ->where('lot_no', $normalized)
+                ->where('is_active', true)
+                ->first();
+
+            if ($batch === null) {
+                throw ValidationException::withMessages([
+                    'lot_no' => 'ไม่พบล็อตนี้หรือถูกปิดใช้งาน',
+                ]);
+            }
+
+            return $batch;
+        }
+
+        $batch = ProductBatch::query()
+            ->where('product_id', $product->id)
+            ->where('is_active', true)
+            ->where('qty', '>', 0)
+            ->orderByRaw('CASE WHEN expire_date IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('expire_date')
+            ->orderByRaw('CASE WHEN received_at IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('received_at')
+            ->orderBy('id')
+            ->first();
+
+        if ($batch === null) {
+            throw ValidationException::withMessages([
+                'lot_no' => 'ไม่มีล็อตที่พร้อมให้เบิก',
+            ]);
+        }
+
+        return $batch;
+    }
+
+    public function resolveForAdjust(Product $product, string $lotNo): ProductBatch
+    {
+        $normalized = $this->normalizeLotNo($lotNo);
 
         if ($normalized === null) {
-            return $this->resolveUnspecifiedBatch($product, $createIfMissing);
+            throw ValidationException::withMessages([
+                'lot_no' => 'กรุณาเลือกล็อตที่ต้องการปรับยอด',
+            ]);
         }
 
         $batch = ProductBatch::query()
             ->where('product_id', $product->id)
             ->where('lot_no', $normalized)
+            ->where('is_active', true)
             ->first();
 
-        if ($batch !== null) {
-            return $batch;
-        }
-
-        if (! $createIfMissing) {
+        if ($batch === null) {
             throw ValidationException::withMessages([
-                'sub_sku' => 'ไม่พบล็อตย่อยนี้สำหรับสินค้า',
+                'lot_no' => 'ไม่พบล็อตนี้สำหรับสินค้า',
             ]);
         }
 
-        return ProductBatch::create([
-            'product_id' => $product->id,
-            'lot_no' => $normalized,
-            'expire_date' => $normalizedExpireDate,
-            'qty' => 0,
-            'is_active' => true,
-        ]);
-    }
-
-    private function resolveUnspecifiedBatch(Product $product, bool $createIfMissing): ProductBatch
-    {
-        $lotNo = 'LOT-01';
-
-        $batch = ProductBatch::query()
-            ->where('product_id', $product->id)
-            ->where('lot_no', $lotNo)
-            ->first();
-
-        if ($batch !== null) {
-            return $batch;
-        }
-
-        if (! $createIfMissing) {
-            throw ValidationException::withMessages([
-                'sub_sku' => 'ไม่พบล็อตเริ่มต้นสำหรับสินค้านี้',
-            ]);
-        }
-
-        return ProductBatch::create([
-            'product_id' => $product->id,
-            'lot_no' => $lotNo,
-            'expire_date' => null,
-            'qty' => 0,
-            'is_active' => true,
-        ]);
+        return $batch;
     }
 
     private function normalizeLotNo(?string $lotNo): ?string
     {
         $value = trim((string) $lotNo);
 
-        if ($value === '' || $value === self::UNSPECIFIED_TOKEN) {
+        if ($value === '') {
             return null;
         }
 
-        if (mb_strlen($value) > 16) {
-            $value = mb_substr($value, 0, 16);
-        }
-
-        return Str::of($value)->squish()->toString();
-    }
-
-    private function normalizeExpireDate(?Carbon $expireDate): ?Carbon
-    {
-        return $expireDate?->copy()->startOfDay();
+        return Str::of($value)->squish()->limit(32)->toString();
     }
 }

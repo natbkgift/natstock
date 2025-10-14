@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ImportController;
 use App\Http\Controllers\Admin\MovementController;
+use App\Http\Controllers\Admin\ProductMovementController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ReportController;
@@ -63,9 +64,9 @@ Route::middleware(['web','auth'])->prefix('admin')->name('admin.')->group(functi
     // Movements
     Route::resource('movements', MovementController::class)->only(['index']);
     Route::get('movements/products/search', [MovementController::class, 'searchProducts'])->name('movements.products.search');
-    Route::post('movements/store-in', [MovementController::class, 'storeIn'])->name('movements.store.in');
-    Route::post('movements/store-out', [MovementController::class, 'storeOut'])->name('movements.store.out');
-    Route::post('movements/store-adjust', [MovementController::class, 'storeAdjust'])->name('movements.store.adjust');
+    Route::post('products/{product}/receive', [ProductMovementController::class, 'storeReceive'])->name('products.receive');
+    Route::post('products/{product}/issue', [ProductMovementController::class, 'storeIssue'])->name('products.issue');
+    Route::post('products/{product}/adjust', [ProductMovementController::class, 'storeAdjust'])->name('products.adjust');
 
     // Import
     Route::get('import', [ImportController::class, 'index'])->name('import.index');

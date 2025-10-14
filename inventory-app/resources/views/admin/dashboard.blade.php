@@ -7,8 +7,8 @@
 @endsection
 
 @php
-    $typeLabels = ['in' => 'รับเข้า', 'out' => 'เบิกออก', 'adjust' => 'ปรับยอด'];
-    $typeClasses = ['in' => 'success', 'out' => 'danger', 'adjust' => 'warning'];
+    $typeLabels = ['receive' => 'รับเข้า', 'issue' => 'เบิกออก', 'adjust' => 'ปรับยอด'];
+    $typeClasses = ['receive' => 'success', 'issue' => 'danger', 'adjust' => 'warning'];
 @endphp
 
 @section('content')

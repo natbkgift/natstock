@@ -9,100 +9,108 @@
 @endsection
 
 @section('content')
-<div class="card mb-4">
-    <div class="card-header">
-        <h3 class="card-title mb-0">ข้อมูลหลักของสินค้า</h3>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-6">
-                <dl class="row mb-0">
-                    <dt class="col-sm-4">SKU</dt>
-                    <dd class="col-sm-8">{{ $product->sku }}</dd>
-
-                    <dt class="col-sm-4">ชื่อสินค้า</dt>
-                    <dd class="col-sm-8">{{ $product->name }}</dd>
-
-                    <dt class="col-sm-4">หมวดหมู่</dt>
-                    <dd class="col-sm-8">{{ $product->category->name ?? '-' }}</dd>
-
-                    <dt class="col-sm-4">สถานะ</dt>
-                    <dd class="col-sm-8">
-                        <span class="badge badge-{{ $product->is_active ? 'success' : 'secondary' }}">{{ $product->is_active ? 'ใช้งาน' : 'ปิดใช้งาน' }}</span>
-                    </dd>
-                </dl>
-            </div>
-            <div class="col-md-6">
-                <dl class="row mb-0">
-                    <dt class="col-sm-5">คงเหลือรวม (ทุกล็อต)</dt>
-                    <dd class="col-sm-7">{{ number_format($product->qtyCurrent()) }}</dd>
-
-                    <dt class="col-sm-5">จุดสั่งซื้อซ้ำ</dt>
-                    <dd class="col-sm-7">{{ number_format($product->reorder_point) }}</dd>
-
-                    <dt class="col-sm-5">วันหมดอายุหลัก</dt>
-                    <dd class="col-sm-7">
-                        @if($product->expire_date)
-                            {{ $product->expire_date->locale('th')->translatedFormat('d M Y') }}
-                        @else
-                            <span class="text-muted">-</span>
-                        @endif
-                    </dd>
-                </dl>
-            </div>
-        </div>
-    </div>
-</div>
-
 <div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h3 class="card-title mb-0">ล็อต (Batch/Sub-SKU)</h3>
-        @can('access-staff')
-            <button type="button" class="btn btn-primary btn-sm" id="btn-open-product-batch-modal"><i class="fas fa-plus"></i> เพิ่มล็อตใหม่</button>
-        @endcan
+    <div class="card-header p-0 border-bottom-0">
+        <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" data-toggle="tab" href="#tab-product-info" role="tab">ข้อมูลสินค้า</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-toggle="tab" href="#tab-product-batches" role="tab">ล็อต (LOT)</a>
+            </li>
+        </ul>
     </div>
     <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover">
-                <thead>
-                    <tr>
-                        <th>Sub-SKU</th>
-                        <th>วันหมดอายุ</th>
-                        <th class="text-right">คงเหลือ</th>
-                        <th>สถานะ</th>
-                        <th class="text-right">เครื่องมือ</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($product->batches as $batch)
-                        <tr>
-                            <td>{{ $batch->sub_sku }}</td>
-                            <td>
-                                @if($batch->expire_date)
-                                    {{ $batch->expire_date->locale('th')->translatedFormat('d M Y') }}
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="tab-product-info" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-6">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">SKU</dt>
+                            <dd class="col-sm-8">{{ $product->sku }}</dd>
+
+                            <dt class="col-sm-4">ชื่อสินค้า</dt>
+                            <dd class="col-sm-8">{{ $product->name }}</dd>
+
+                            <dt class="col-sm-4">หมวดหมู่</dt>
+                            <dd class="col-sm-8">{{ $product->category->name ?? '-' }}</dd>
+
+                            <dt class="col-sm-4">สถานะ</dt>
+                            <dd class="col-sm-8">
+                                <span class="badge badge-{{ $product->is_active ? 'success' : 'secondary' }}">{{ $product->is_active ? 'ใช้งาน' : 'ปิดใช้งาน' }}</span>
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-5">คงเหลือรวม (ทุกล็อต)</dt>
+                            <dd class="col-sm-7">{{ number_format($product->qtyCurrent()) }}</dd>
+
+                            <dt class="col-sm-5">จุดสั่งซื้อซ้ำ</dt>
+                            <dd class="col-sm-7">{{ number_format($product->reorder_point) }}</dd>
+
+                            <dt class="col-sm-5">วันหมดอายุหลัก</dt>
+                            <dd class="col-sm-7">
+                                @if($product->expire_date)
+                                    {{ $product->expire_date->locale('th')->translatedFormat('d M Y') }}
                                 @else
-                                    <span class="text-muted">ไม่ระบุ</span>
+                                    <span class="text-muted">-</span>
                                 @endif
-                            </td>
-                            <td class="text-right">{{ number_format($batch->qty) }}</td>
-                            <td>
-                                <span class="badge badge-{{ $batch->is_active ? 'success' : 'secondary' }}">{{ $batch->is_active ? 'ใช้งาน' : 'ปิดใช้งาน' }}</span>
-                            </td>
-                            <td class="text-right">
-                                <div class="btn-group btn-group-sm" role="group">
-                                    <a href="{{ route('admin.movements.index', ['form_type' => 'in', 'product_id' => $product->id, 'sub_sku' => $batch->sub_sku === $product->sku . '-UNSPECIFIED' ? '__UNSPECIFIED__' : $batch->sub_sku]) }}" class="btn btn-outline-success">รับเข้า</a>
-                                    <a href="{{ route('admin.movements.index', ['form_type' => 'out', 'product_id' => $product->id, 'sub_sku' => $batch->sub_sku === $product->sku . '-UNSPECIFIED' ? '__UNSPECIFIED__' : $batch->sub_sku]) }}" class="btn btn-outline-danger">เบิกออก</a>
-                                    <a href="{{ route('admin.movements.index', ['form_type' => 'adjust', 'product_id' => $product->id, 'sub_sku' => $batch->sub_sku === $product->sku . '-UNSPECIFIED' ? '__UNSPECIFIED__' : $batch->sub_sku]) }}" class="btn btn-outline-warning text-warning">ปรับยอด</a>
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="5" class="text-center text-muted">ยังไม่มีข้อมูลล็อตของสินค้านี้</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="tab-product-batches" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0">รายการล็อต</h4>
+                    @can('access-staff')
+                        <button type="button" class="btn btn-primary btn-sm" id="btn-open-product-batch-modal"><i class="fas fa-plus"></i> เพิ่มล็อตใหม่</button>
+                    @endcan
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>LOT</th>
+                                <th>วันหมดอายุ</th>
+                                <th class="text-right">คงเหลือ</th>
+                                <th>สถานะ</th>
+                                <th class="text-right">เครื่องมือ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($product->batches as $batch)
+                                <tr>
+                                    <td>{{ $batch->lot_no }}</td>
+                                    <td>
+                                        @if($batch->expire_date)
+                                            {{ $batch->expire_date->locale('th')->translatedFormat('d M Y') }}
+                                        @else
+                                            <span class="text-muted">ไม่ระบุ</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-right">{{ number_format($batch->qty) }}</td>
+                                    <td>
+                                        <span class="badge badge-{{ $batch->is_active ? 'success' : 'secondary' }}">{{ $batch->is_active ? 'ใช้งาน' : 'ปิดใช้งาน' }}</span>
+                                    </td>
+                                    <td class="text-right">
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{{ route('admin.movements.index', ['form_type' => 'receive', 'product_id' => $product->id, 'lot_no' => $batch->lot_no]) }}" class="btn btn-outline-success">รับเข้า</a>
+                                            <a href="{{ route('admin.movements.index', ['form_type' => 'issue', 'product_id' => $product->id, 'lot_no' => $batch->lot_no]) }}" class="btn btn-outline-danger">เบิกออก</a>
+                                            <a href="{{ route('admin.movements.index', ['form_type' => 'adjust', 'product_id' => $product->id, 'lot_no' => $batch->lot_no]) }}" class="btn btn-outline-warning text-warning">ปรับยอด</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">ยังไม่มีข้อมูลล็อตของสินค้านี้</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -121,10 +129,6 @@
                 <div class="alert alert-danger d-none" id="product-batch-error"></div>
                 <form id="product-batch-form">
                     @csrf
-                    <div class="form-group">
-                        <label for="product_modal_sub_sku">รหัสล็อต (Sub-SKU)</label>
-                        <input type="text" id="product_modal_sub_sku" name="sub_sku" class="form-control" maxlength="64" required>
-                    </div>
                     <div class="form-group">
                         <label for="product_modal_expire_date">วันหมดอายุ (ถ้ามี)</label>
                         <input type="date" id="product_modal_expire_date" name="expire_date" class="form-control">
@@ -172,7 +176,6 @@
         $('#product-batch-save').on('click', function () {
             const $form = $('#product-batch-form');
             const payload = {
-                sub_sku: $form.find('input[name=sub_sku]').val(),
                 expire_date: $form.find('input[name=expire_date]').val(),
                 note: $form.find('textarea[name=note]').val(),
             };
