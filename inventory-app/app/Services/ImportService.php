@@ -1255,7 +1255,9 @@ class ImportService
             }
 
             $batchCache[$batchKey] = $batch;
-            $qtyChanged = $qtyChanged || ($movementType !== null && $movementQty > 0);
+            if ($movementType !== null && $movementQty > 0) {
+                $qtyChanged = true;
+            }
         }
 
         if ($qtyChanged) {
