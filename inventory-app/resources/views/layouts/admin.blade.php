@@ -97,6 +97,12 @@
                             <p>นำเข้าไฟล์</p>
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a href="{{ route('import_export.index') }}" class="nav-link {{ request()->routeIs('import_export.*') ? 'active' : '' }}">
+                            <i class="nav-icon fas fa-file-export"></i>
+                            <p>นำเข้าส่งออกไฟล์</p>
+                        </a>
+                    </li>
                     @can('access-admin')
                         <li class="nav-item">
                             <a href="{{ route('admin.settings.index') }}" class="nav-link {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}">

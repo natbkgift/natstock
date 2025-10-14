@@ -5,6 +5,7 @@ return [
     'confirmed' => ':attribute ไม่ตรงกัน.',
     'email' => ':attribute ต้องเป็นอีเมลที่ถูกต้อง.',
     'required' => 'กรุณากรอก :attribute.',
+    'mimes' => 'กรุณาเลือกไฟล์นามสกุล :values เท่านั้น.',
     'min' => [
         'string' => ':attribute ต้องมีอย่างน้อย :min อักขระ.',
     ],
