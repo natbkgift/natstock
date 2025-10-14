@@ -18,12 +18,12 @@ class ProductBatchController extends Controller
         $this->authorize('viewAny', [ProductBatch::class, $product]);
 
         $batches = $product->batches()
-            ->orderBy('sub_sku')
+            ->orderBy('lot_no')
             ->get()
             ->map(function (ProductBatch $batch) {
                 return [
                     'id' => $batch->id,
-                    'sub_sku' => $batch->sub_sku,
+                    'sub_sku' => $batch->lot_no,
                     'expire_date' => $batch->expire_date?->toDateString(),
                     'expire_date_th' => $batch->expire_date?->locale('th')->translatedFormat('d M Y'),
                     'qty' => (int) $batch->qty,
@@ -42,22 +42,22 @@ class ProductBatchController extends Controller
 
         $validated = $request->validate(
             [
-                'sub_sku' => ['required', 'string', 'max:64'],
+                'sub_sku' => ['required', 'string', 'max:16'],
                 'expire_date' => ['nullable', 'date_format:Y-m-d'],
                 'note' => ['nullable', 'string'],
             ],
             [
                 'sub_sku.required' => 'กรุณาระบุรหัสล็อต',
                 'sub_sku.string' => 'รหัสล็อตต้องเป็นข้อความ',
-                'sub_sku.max' => 'รหัสล็อตต้องไม่เกิน 64 ตัวอักษร',
+                'sub_sku.max' => 'รหัสล็อตต้องไม่เกิน 16 ตัวอักษร',
                 'expire_date.date_format' => 'รูปแบบวันหมดอายุไม่ถูกต้อง (ใช้รูปแบบ YYYY-MM-DD)',
                 'note.string' => 'หมายเหตุต้องเป็นข้อความ',
             ]
         );
 
-        $normalizedSubSku = $this->normalizeSubSku($validated['sub_sku']);
+        $normalizedLotNo = $this->normalizeLotNo($validated['sub_sku']);
 
-        if ($product->batches()->where('sub_sku', $normalizedSubSku)->exists()) {
+        if ($product->batches()->where('lot_no', $normalizedLotNo)->exists()) {
             throw ValidationException::withMessages([
                 'sub_sku' => 'รหัสล็อตนี้ถูกใช้แล้วสำหรับสินค้า',
             ]);
@@ -70,7 +70,7 @@ class ProductBatchController extends Controller
 
         $batch = ProductBatch::create([
             'product_id' => $product->id,
-            'sub_sku' => $normalizedSubSku,
+            'lot_no' => $normalizedLotNo,
             'expire_date' => $expireDate,
             'qty' => 0,
             'note' => $validated['note'] ?? null,
@@ -79,7 +79,7 @@ class ProductBatchController extends Controller
 
         $responseData = [
             'id' => $batch->id,
-            'sub_sku' => $batch->sub_sku,
+            'sub_sku' => $batch->lot_no,
             'expire_date' => $batch->expire_date?->toDateString(),
             'expire_date_th' => $batch->expire_date?->locale('th')->translatedFormat('d M Y'),
             'qty' => (int) $batch->qty,
@@ -92,9 +92,9 @@ class ProductBatchController extends Controller
         ], 201);
     }
 
-    private function normalizeSubSku(string $subSku): string
+    private function normalizeLotNo(string $value): string
     {
-        $value = trim($subSku);
+        $value = trim($value);
 
         if ($value === '') {
             throw ValidationException::withMessages([
@@ -108,8 +108,8 @@ class ProductBatchController extends Controller
             ]);
         }
 
-        if (mb_strlen($value) > 64) {
-            $value = mb_substr($value, 0, 64);
+        if (mb_strlen($value) > 16) {
+            $value = mb_substr($value, 0, 16);
         }
 
         return $value;

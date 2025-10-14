@@ -74,7 +74,8 @@ class AlertSnapshotService
                     'id' => $batch->id,
                     'sku' => $batch->product?->sku ?? '-',
                     'name' => $batch->product?->name ?? '-',
-                    'sub_sku' => $batch->sub_sku,
+                    'sub_sku' => $batch->lot_no,
+                    'lot_no' => $batch->lot_no,
                     'expire_date' => optional($batch->expire_date)->format('Y-m-d'),
                     'qty' => (int) $batch->qty,
                 ];
@@ -136,7 +137,7 @@ class AlertSnapshotService
             ->active()
             ->expiringIn($days)
             ->orderBy('expire_date')
-            ->orderBy('sub_sku');
+            ->orderBy('lot_no');
     }
 
     private function cloneQueryForIds(Builder $builder): Builder

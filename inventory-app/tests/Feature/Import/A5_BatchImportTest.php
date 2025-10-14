@@ -135,7 +135,10 @@ it('upserts batches in replace mode and records adjustments', function (): void 
 
 it('upserts batches in delta mode and records receive movements', function (): void {
     $service = new ImportService();
-    $category = Category::factory()->create(['name' => 'เวชภัณฑ์']);
+    $category = Category::query()->firstOrCreate(
+        ['name' => 'เวชภัณฑ์'],
+        ['note' => 'อุปกรณ์การแพทย์และของใช้ในคลัง', 'is_active' => true]
+    );
     $product = Product::factory()->create([
         'sku' => 'SKU-DELTA',
         'name' => 'ผ้าก๊อซ',
@@ -290,7 +293,10 @@ it('rolls back the entire file when strict mode input exceeds the chunk size and
 
 it('commits valid rows and exports errors in lenient mode', function (): void {
     $service = new ImportService();
-    $category = Category::factory()->create(['name' => 'เวชภัณฑ์']);
+    $category = Category::query()->firstOrCreate(
+        ['name' => 'เวชภัณฑ์'],
+        ['note' => 'อุปกรณ์การแพทย์และของใช้ในคลัง', 'is_active' => true]
+    );
 
     $rows = [[
         'sku', 'name', 'category', 'qty', 'cost_price', 'sale_price', 'expire_date', 'reorder_point', 'note', 'is_active',

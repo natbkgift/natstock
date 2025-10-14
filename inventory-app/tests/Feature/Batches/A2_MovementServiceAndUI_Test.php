@@ -42,7 +42,7 @@ it('receives stock and creates a new batch when needed', function () {
     $product->refresh();
 
     expect($product->qty)->toBe(12)
-        ->and(ProductBatch::where('product_id', $product->id)->where('sub_sku', 'LOT-NEW')->count())->toBe(1);
+        ->and(ProductBatch::where('product_id', $product->id)->where('lot_no', 'LOT-NEW')->count())->toBe(1);
 });
 
 it('issues stock from unspecified batch automatically', function () {
@@ -50,11 +50,8 @@ it('issues stock from unspecified batch automatically', function () {
     actingAs($user);
 
     $product = Product::factory()->create(['qty' => 0, 'sku' => 'ITEM-001']);
-    $batch = ProductBatch::factory()->create([
-        'product_id' => $product->id,
-        'sub_sku' => $product->sku . '-UNSPECIFIED',
-        'qty' => 15,
-    ]);
+    $batch = $product->batches()->where('lot_no', 'LOT-01')->firstOrFail();
+    $batch->update(['qty' => 15]);
 
     $service = app(StockMovementService::class);
     $result = $service->issue($product->fresh(), 5, null, 'เบิกออกทั่วไป');
@@ -165,7 +162,7 @@ it('creates product batch via ajax endpoint', function () {
 
     $this->assertDatabaseHas('product_batches', [
         'product_id' => $product->id,
-        'sub_sku' => 'LOT-AJAX',
+        'lot_no' => 'LOT-AJAX',
     ]);
 });
 
@@ -206,11 +203,8 @@ it('maps the sentinel value to the unspecified batch automatically', function ()
     actingAs($user);
 
     $product = Product::factory()->create(['sku' => 'SKU-900']);
-    $batch = ProductBatch::factory()->create([
-        'product_id' => $product->id,
-        'sub_sku' => $product->sku . '-UNSPECIFIED',
-        'qty' => 7,
-    ]);
+    $batch = $product->batches()->where('lot_no', 'LOT-01')->firstOrFail();
+    $batch->update(['qty' => 7]);
 
     $service = app(StockMovementService::class);
 

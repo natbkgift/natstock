@@ -14,15 +14,16 @@ return new class extends Migration
         Schema::create('product_batches', function (Blueprint $table) {
             $table->id();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
-            $table->string('sub_sku', 64);
+            $table->string('lot_no', 16);
             $table->date('expire_date')->nullable();
             $table->unsignedInteger('qty')->default(0);
-            $table->text('note')->nullable();
+            $table->dateTime('received_at')->nullable();
             $table->boolean('is_active')->default(true);
+            $table->text('note')->nullable();
             $table->timestamps();
 
-            $table->unique(['product_id', 'sub_sku']);
-            $table->index('expire_date');
+            $table->unique(['product_id', 'lot_no']);
+            $table->index(['product_id', 'expire_date']);
         });
     }
 

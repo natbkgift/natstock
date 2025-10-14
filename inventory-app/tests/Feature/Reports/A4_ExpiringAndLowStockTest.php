@@ -64,7 +64,7 @@ it('filters expiring batches by days and exports CSV without prices', function (
     $csvResponse->assertOk();
 
     $content = $csvResponse->streamedContent();
-    expect($content)->toContain('sku,name,sub_sku,expire_date,qty,category')
+    expect($content)->toContain('sku,name,lot_no,expire_date,qty,category')
         ->and($content)->toContain('LOT-10')
         ->and($content)->not->toContain('LOT-40');
 });
@@ -75,7 +75,10 @@ it('lists low stock products with aggregated quantities and exports CSV', functi
     $user = createAdminUser();
     actingAs($user);
 
-    $category = Category::factory()->create(['name' => 'เวชภัณฑ์']);
+    $category = Category::query()->firstOrCreate(
+        ['name' => 'เวชภัณฑ์'],
+        ['note' => 'อุปกรณ์การแพทย์และของใช้ในคลัง', 'is_active' => true]
+    );
 
     $product = Product::factory()->create([
         'category_id' => $category->id,

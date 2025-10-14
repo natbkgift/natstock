@@ -103,7 +103,7 @@ class ProductController extends Controller
         // Strip pricing when disabled
         if (!config('inventory.enable_price')) {
             $data['cost_price'] = 0;
-            $data['sale_price'] = null;
+            $data['sale_price'] = 0;
         }
 
         $product = Product::create($data);
@@ -148,7 +148,7 @@ class ProductController extends Controller
         // Strip pricing when disabled; keep when enabled
         if (!config('inventory.enable_price')) {
             $data['cost_price'] = 0;
-            $data['sale_price'] = null;
+            $data['sale_price'] = 0;
         }
         $before = Arr::only($product->toArray(), ['sku', 'name', 'qty', 'reorder_point', 'is_active']);
 
@@ -211,7 +211,7 @@ class ProductController extends Controller
         }
         if (array_key_exists('sale_price', $data)) {
             $sale = $data['sale_price'];
-            $data['sale_price'] = ($sale === null || $sale === '') ? null : (float) $sale;
+            $data['sale_price'] = ($sale === null || $sale === '') ? 0 : (float) $sale;
         }
 
         return $data;

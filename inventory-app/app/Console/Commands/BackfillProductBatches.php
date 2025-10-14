@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Product;
 use App\Models\ProductBatch;
+use App\Services\SkuService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -12,64 +13,71 @@ class BackfillProductBatches extends Command
 {
     protected $signature = 'backfill:product-batches';
 
-    protected $description = 'ย้ายยอดคงเหลือจาก products.qty ไปยัง lot UNSPECIFIED เพื่อเตรียมหลายล็อต';
+    protected $description = 'โยกยอดคงเหลือจาก products.qty ไปยัง product_batches (LOT-01) และตั้งค่ารหัสสินค้า/ล็อตอัตโนมัติ';
 
     public function handle(): int
     {
-        $this->info('เริ่ม backfill ยอดคงเหลือเข้าสู่ product_batches...');
+        $this->warn('ควรรันคำสั่งนี้นอกเวลาใช้งานจริงเพื่อป้องกันข้อมูลคลาดเคลื่อน');
+        $this->info('เริ่ม backfill โครงสร้างล็อตและเลขรัน...');
 
-        $createdBatches = 0;
-        $skippedZeroQty = 0;
-        $skippedExisting = 0;
+        $skuService = app(SkuService::class);
+        $createdLots = 0;
+        $assignedSku = 0;
+        $skippedExistingLot = 0;
 
         try {
             Product::query()
                 ->with('batches')
                 ->orderBy('id')
-                ->chunkById(100, function ($products) use (&$createdBatches, &$skippedZeroQty, &$skippedExisting) {
-                    DB::transaction(function () use ($products, &$createdBatches, &$skippedZeroQty, &$skippedExisting) {
-                        foreach ($products as $product) {
-                            $qty = (int) $product->qty;
-
-                            if ($qty === 0) {
-                                ++$skippedZeroQty;
-
-                                continue;
+                ->chunkById(100, function ($products) use ($skuService, &$createdLots, &$assignedSku, &$skippedExistingLot) {
+                    foreach ($products as $product) {
+                        DB::transaction(function () use ($product, $skuService, &$createdLots, &$assignedSku, &$skippedExistingLot) {
+                            if (blank($product->sku)) {
+                                $product->sku = $skuService->next();
+                                $product->save();
+                                ++$assignedSku;
                             }
 
-                            if ($qty < 0) {
+                            $legacyQty = (int) $product->qty;
+
+                            if ($legacyQty < 0) {
                                 throw new RuntimeException(
-                                    "Product ID {$product->id} has negative quantity ({$qty}), which cannot be backfilled."
+                                    "Product ID {$product->id} has negative quantity ({$legacyQty}), which cannot be backfilled."
                                 );
                             }
 
-                            $unspecifiedSubSku = $product->sku.'-UNSPECIFIED';
-                            $existingBatch = $product->batches->firstWhere('sub_sku', $unspecifiedSubSku);
+                            $initialLot = $product->batches
+                                ->firstWhere('lot_no', 'LOT-01');
 
-                            if ($existingBatch !== null) {
-                                ++$skippedExisting;
+                            if ($initialLot === null && $legacyQty > 0) {
+                                $lotNo = 'LOT-01';
 
-                                continue;
-                            }
-
-                            $batch = ProductBatch::firstOrCreate(
-                                [
+                                ProductBatch::create([
                                     'product_id' => $product->id,
-                                    'sub_sku' => $unspecifiedSubSku,
-                                ],
-                                [
-                                    'expire_date' => null,
-                                    'qty' => $qty,
-                                    'note' => 'สร้างอัตโนมัติเพื่อคงยอดเดิมก่อนรองรับหลายล็อต',
+                                    'lot_no' => $lotNo,
+                                    'qty' => $legacyQty,
+                                    'received_at' => now(),
                                     'is_active' => true,
-                                ]
-                            );
+                                ]);
 
-                            if ($batch->wasRecentlyCreated) {
-                                ++$createdBatches;
+                                $this->saveCounter($product->id, 2);
+
+                                $product->qty = 0;
+                                $product->save();
+
+                                ++$createdLots;
+                            } elseif ($initialLot !== null) {
+                                $next = $this->determineNextLotNo($product->batches->pluck('lot_no')->all());
+
+                                $this->saveCounter($product->id, $next);
+
+                                ++$skippedExistingLot;
+                            } else {
+                                $this->saveCounter($product->id, 1);
                             }
-                        }
-                    });
+
+                        });
+                    }
                 });
         } catch (RuntimeException $exception) {
             $this->error($exception->getMessage());
@@ -78,18 +86,57 @@ class BackfillProductBatches extends Command
             return Command::FAILURE;
         }
 
-        $this->info("สร้าง batch UNSPECIFIED ใหม่จำนวน {$createdBatches} รายการ");
+        $this->info("กำหนด SKU ใหม่จำนวน {$assignedSku} รายการ");
+        $this->info("สร้างล็อต LOT-01 ใหม่จำนวน {$createdLots} รายการ");
 
-        if ($skippedExisting > 0) {
-            $this->info("ข้ามสินค้า {$skippedExisting} รายการที่มี batch UNSPECIFIED อยู่แล้ว");
+        if ($skippedExistingLot > 0) {
+            $this->info("พบสินค้าที่มีล็อต LOT-01 อยู่แล้วจำนวน {$skippedExistingLot} รายการ");
         }
 
-        if ($skippedZeroQty > 0) {
-            $this->info("ข้ามสินค้า {$skippedZeroQty} รายการที่มียอดคงเหลือเป็น 0");
-        }
-
-        $this->info('สำเร็จแล้ว สามารถเริ่มใช้งานโครงสร้าง lot ใหม่ได้');
+        $this->info('สำเร็จแล้ว สามารถตรวจสอบยอดคงเหลือผ่าน product_batches ได้');
 
         return Command::SUCCESS;
+    }
+
+    private function determineNextLotNo(array $lotNos): int
+    {
+        $max = 1;
+
+        foreach ($lotNos as $lotNo) {
+            if (preg_match('/LOT-(\d{2})/', $lotNo, $matches)) {
+                $value = (int) $matches[1];
+                $max = max($max, $value + 1);
+            }
+        }
+
+        return max(2, $max);
+    }
+
+    private function saveCounter(int $productId, int $nextNo): void
+    {
+        $row = DB::table('product_lot_counters')
+            ->where('product_id', $productId)
+            ->lockForUpdate()
+            ->first();
+
+        $timestamp = now();
+
+        if ($row === null) {
+            DB::table('product_lot_counters')->insert([
+                'product_id' => $productId,
+                'next_no' => $nextNo,
+                'created_at' => $timestamp,
+                'updated_at' => $timestamp,
+            ]);
+
+            return;
+        }
+
+        DB::table('product_lot_counters')
+            ->where('product_id', $productId)
+            ->update([
+                'next_no' => $nextNo,
+                'updated_at' => $timestamp,
+            ]);
     }
 }
