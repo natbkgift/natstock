@@ -32,7 +32,6 @@ class ProductBatchController extends Controller
                     'expire_date_th' => $batch->expire_date?->locale('th')->translatedFormat('d M Y'),
                     'qty' => (int) $batch->qty,
                     'is_active' => (bool) $batch->is_active,
-                    'label' => $this->formatBatchLabel($batch),
                 ];
             });
 
@@ -79,27 +78,11 @@ class ProductBatchController extends Controller
             'expire_date_th' => $batch->expire_date?->locale('th')->translatedFormat('d M Y'),
             'qty' => (int) $batch->qty,
             'is_active' => (bool) $batch->is_active,
-            'label' => $this->formatBatchLabel($batch),
         ];
 
         return response()->json([
             'message' => 'สร้างล็อตใหม่เรียบร้อย',
             'batch' => $responseData,
         ], 201);
-    }
-
-    private function formatBatchLabel(ProductBatch $batch): string
-    {
-        $parts = [$batch->lot_no];
-
-        if ($batch->expire_date !== null) {
-            $parts[] = 'หมดอายุ ' . $batch->expire_date->locale('th')->translatedFormat('d M Y');
-        } else {
-            $parts[] = 'ไม่ระบุวันหมดอายุ';
-        }
-
-        $parts[] = 'คงเหลือ ' . number_format((int) $batch->qty);
-
-        return implode(' — ', $parts);
     }
 }

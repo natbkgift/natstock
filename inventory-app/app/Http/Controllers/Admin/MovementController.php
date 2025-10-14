@@ -167,7 +167,7 @@ class MovementController extends Controller
 
     /**
      * @param array<int, array{id:int, sku:string, name:string, qty:int, reorder_point:int, batches: \Illuminate\Support\Collection}> $productOptions
-     * @return array<int, array<int, array{lot_no: string, label: string, expire_date_th: ?string, qty: int}>>
+     * @return array<int, array<int, array{lot_no: string, expire_date_th: ?string, qty: int}>>
      */
     private function buildBatchOptions(array $productOptions): array
     {
@@ -178,7 +178,6 @@ class MovementController extends Controller
                 ->map(function (ProductBatch $batch) {
                     return [
                         'lot_no' => $batch->lot_no,
-                        'label' => $this->formatBatchLabel($batch),
                         'expire_date_th' => $this->formatExpireDate($batch),
                         'qty' => (int) $batch->qty,
                     ];
@@ -217,17 +216,6 @@ class MovementController extends Controller
             })
             ->keyBy('id')
             ->all();
-    }
-
-    private function formatBatchLabel(ProductBatch $batch): string
-    {
-        $parts = [$batch->lot_no];
-
-        if ($batch->expire_date !== null) {
-            $parts[] = $batch->expire_date->locale('th')->translatedFormat('d M Y');
-        }
-
-        return implode(' | ', $parts);
     }
 
     private function formatExpireDate(ProductBatch $batch): ?string

@@ -114,15 +114,8 @@
                         </div>
                         <div class="form-group col-md-4">
                             <label for="lot_issue">ล็อต (เลือกได้หรือปล่อยว่างเพื่อให้ระบบเลือกอัตโนมัติ)</label>
-                            <select name="lot_no" id="lot_issue" class="form-control select2-batch @if($activeTab === 'issue' && $errors->has('lot_no')) is-invalid @endif" data-mode="issue" data-product-input="#product_issue">
+                            <select name="lot_no" id="lot_issue" class="form-control select2-batch @if($activeTab === 'issue' && $errors->has('lot_no')) is-invalid @endif" data-mode="issue" data-product-input="#product_issue" data-selected="{{ $issueLot }}">
                                 <option value="">ให้ระบบเลือกอัตโนมัติ</option>
-                                @if($issueProduct && isset($initialBatchOptions[$issueProduct]))
-                                    @foreach($initialBatchOptions[$issueProduct] as $batch)
-                                        <option value="{{ $batch['lot_no'] }}" data-expire="{{ $batch['expire_date_th'] }}" data-qty="{{ $batch['qty'] }}" {{ (string) $issueLot === (string) $batch['lot_no'] ? 'selected' : '' }}>
-                                            {{ $batch['label'] }}
-                                        </option>
-                                    @endforeach
-                                @endif
                             </select>
                             @if($activeTab === 'issue' && $errors->has('lot_no'))
                                 <div class="invalid-feedback d-block">{{ $errors->first('lot_no') }}</div>
@@ -180,15 +173,8 @@
                         </div>
                         <div class="form-group col-md-4">
                             <label for="lot_adjust">ล็อตที่ต้องการปรับ</label>
-                            <select name="lot_no" id="lot_adjust" class="form-control select2-batch @if($activeTab === 'adjust' && $errors->has('lot_no')) is-invalid @endif" data-mode="adjust" data-product-input="#product_adjust" required>
+                            <select name="lot_no" id="lot_adjust" class="form-control select2-batch @if($activeTab === 'adjust' && $errors->has('lot_no')) is-invalid @endif" data-mode="adjust" data-product-input="#product_adjust" data-selected="{{ $adjustLot }}" required>
                                 <option value="">-- เลือกล็อต --</option>
-                                @if($adjustProduct && isset($initialBatchOptions[$adjustProduct]))
-                                    @foreach($initialBatchOptions[$adjustProduct] as $batch)
-                                        <option value="{{ $batch['lot_no'] }}" data-expire="{{ $batch['expire_date_th'] }}" data-qty="{{ $batch['qty'] }}" {{ (string) $adjustLot === (string) $batch['lot_no'] ? 'selected' : '' }}>
-                                            {{ $batch['label'] }}
-                                        </option>
-                                    @endforeach
-                                @endif
                             </select>
                             @if($activeTab === 'adjust' && $errors->has('lot_no'))
                                 <div class="invalid-feedback d-block">{{ $errors->first('lot_no') }}</div>
@@ -409,7 +395,8 @@
 
         function renderBatchOptions($select, batches, selectedValue, mode) {
             const targetBatches = filterBatchesByMode(batches, mode);
-            const currentValue = selectedValue ?? '';
+            const fallbackValue = String($select.data('selected') ?? '');
+            const currentValue = selectedValue ?? fallbackValue;
             const allowBlank = mode !== 'adjust';
 
             $select.empty();
@@ -431,19 +418,21 @@
                     $select.append(option);
                 });
 
+            $select.data('selected', currentValue || '');
             $select.trigger('change.select2');
         }
 
         function populateBatchSelect($select, productId, selectedValue) {
             const mode = String($select.data('mode') || 'adjust');
+            const defaultValue = selectedValue ?? String($select.data('selected') ?? '');
 
             if (!productId) {
-                renderBatchOptions($select, [], selectedValue, mode);
+                renderBatchOptions($select, [], defaultValue, mode);
                 return;
             }
 
             if (batchCache[productId]) {
-                renderBatchOptions($select, batchCache[productId], selectedValue, mode);
+                renderBatchOptions($select, batchCache[productId], defaultValue, mode);
                 return;
             }
 
@@ -453,10 +442,10 @@
             $.getJSON(url)
                 .done(response => {
                     batchCache[productId] = response.results || [];
-                    renderBatchOptions($select, batchCache[productId], selectedValue, mode);
+                    renderBatchOptions($select, batchCache[productId], defaultValue, mode);
                 })
                 .fail(() => {
-                    renderBatchOptions($select, [], selectedValue, mode);
+                    renderBatchOptions($select, [], defaultValue, mode);
                 })
                 .always(() => {
                     $select.prop('disabled', false);
@@ -504,7 +493,8 @@
 
             if (batchTarget) {
                 const $batchSelect = $(batchTarget);
-                populateBatchSelect($batchSelect, $productSelect.val(), $batchSelect.val());
+                const initialSelected = $batchSelect.data('selected') ?? $batchSelect.val();
+                populateBatchSelect($batchSelect, $productSelect.val(), initialSelected);
 
                 $productSelect.on('change', function () {
                     populateBatchSelect($batchSelect, $(this).val(), '');
