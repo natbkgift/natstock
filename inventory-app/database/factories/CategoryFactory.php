@@ -23,17 +23,14 @@ class CategoryFactory extends Factory
 
         $index = self::$index % count($options);
         $item = $options[$index];
-        $id = self::$index + 1;
         self::$index++;
 
         $name = $item['ชื่อ'];
-
-        if ($id > count($options)) {
-            $name .= ' #' . $id;
+        if (self::$index > count($options)) {
+            $name .= ' #' . self::$index;
         }
 
         return [
-            'id' => $id,
             'name' => $name,
             'note' => $item['หมายเหตุ'],
             'is_active' => true,

@@ -917,7 +917,11 @@ class ImportService
         if (is_object($file) && method_exists($file, 'getClientOriginalExtension')) {
             $extension = (string) $file->getClientOriginalExtension();
             if ($extension !== '') {
-                return strtolower($extension);
+                $extension = strtolower($extension);
+                if (!in_array($extension, ['csv', 'xlsx'], true)) {
+                    return $default; // fallback for unexpected upload extensions
+                }
+                return $extension;
             }
         }
 
@@ -931,14 +935,22 @@ class ImportService
         if (is_object($file) && method_exists($file, 'getRealPath')) {
             $extension = pathinfo((string) $file->getRealPath(), PATHINFO_EXTENSION);
             if ($extension !== '') {
-                return strtolower($extension);
+                $extension = strtolower($extension);
+                if (!in_array($extension, ['csv', 'xlsx'], true)) {
+                    return $default;
+                }
+                return $extension;
             }
         }
 
         if (is_string($file)) {
             $extension = pathinfo($file, PATHINFO_EXTENSION);
             if ($extension !== '') {
-                return strtolower($extension);
+                $extension = strtolower($extension);
+                if (!in_array($extension, ['csv', 'xlsx'], true)) {
+                    return $default; // treat temp files (e.g. .tmp) as csv
+                }
+                return $extension;
             }
         }
 

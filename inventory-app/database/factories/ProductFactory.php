@@ -45,7 +45,8 @@ class ProductFactory extends Factory
             'sku' => $sku,
             'name' => $item['ชื่อ'],
             'note' => $item['โน้ต'],
-            'category_id' => Category::factory()->create()->getKey(),
+            // Only create a category when one is not explicitly provided via override
+            'category_id' => Category::factory(),
             'cost_price' => round([45, 30, 12, 150, 85][$index], 2),
             'sale_price' => round([65, 55, 25, 210, 110][$index], 2),
             'expire_date' => $expireDates[$index],
