@@ -23,7 +23,7 @@
                     <label for="days">ช่วงเวลาที่ต้องการเตือน</label>
                     <select name="days" id="days" class="form-control">
                         @foreach($dayOptions as $option)
-                            <option value="{{ $option['value'] }}" @selected(($filters['days'] ?? 30) === $option['value'])>{{ $option['label'] }}</option>
+                            <option value="{{ $option['value'] }}" @selected(($filters['days'] ?? config('inventory.alerts.default_expiring_days', 30)) === $option['value'])>{{ $option['label'] }}</option>
                         @endforeach
                     </select>
                 </div>

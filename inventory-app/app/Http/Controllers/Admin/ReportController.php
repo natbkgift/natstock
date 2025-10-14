@@ -134,14 +134,22 @@ class ReportController extends Controller
      */
     private function prepareExpiringBatchFilters(Request $request): array
     {
-        $allowed = [7, 30, 60, 90];
+        $allowed = collect($this->expiringDayOptions())
+            ->pluck('value')
+            ->filter(static fn ($value) => is_numeric($value))
+            ->map(static fn ($value) => (int) $value)
+            ->all();
+        $defaultDays = (int) config('inventory.alerts.default_expiring_days', 30);
+        if (!in_array($defaultDays, $allowed, true)) {
+            $defaultDays = 30;
+        }
         $rawDays = $request->query('days');
 
         if ($rawDays === 'expired') {
             $days = 'expired';
         } else {
-            $candidate = $request->integer('days', 30);
-            $days = in_array($candidate, $allowed, true) ? $candidate : 30;
+            $candidate = $request->integer('days', $defaultDays);
+            $days = in_array($candidate, $allowed, true) ? $candidate : $defaultDays;
         }
 
         return [
@@ -301,7 +309,7 @@ class ReportController extends Controller
 
     protected function exportExpiringBatchesCsv(Collection $batches, array $filters)
     {
-        $days = $filters['days'] ?? 30;
+        $days = $filters['days'] ?? (int) config('inventory.alerts.default_expiring_days', 30);
         $rangeSlug = is_numeric($days) ? ((int) $days . 'd') : (string) $days;
         $filename = sprintf('expiring_batches_%s_%s.csv', $rangeSlug, Carbon::today()->format('Ymd'));
 
