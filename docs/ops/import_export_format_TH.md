@@ -14,6 +14,8 @@
 | `is_active` | ✱ | `1/0` หรือ `true/false` |
 
 > เมื่อ `INVENTORY_ENABLE_PRICE=false` คอลัมน์ `cost_price` และ `sale_price` จะถูกแสดงว่า **ignored** ในหน้าพรีวิวและไม่ถูกบันทึกลงระบบ
+>
+> **สำคัญ:** โหมดการนำเข้า (UPSERT/DELTA/SKIP) ถูกเลือกที่หน้าพรีวิวและมีผลกับทั้งไฟล์ ไม่รองรับการกำหนดโหมดต่อแถวใน CSV
 
 ## โหมดการนำเข้า
 - **UPSERT (REPLACE)** — ตั้งยอดล็อตให้ตรงกับไฟล์, ระบบสร้าง movement ประเภท `adjust` พร้อมบันทึกก่อน/หลัง
@@ -36,8 +38,8 @@
 5. ยืนยันการนำเข้า, ดาวน์โหลด `error.csv` ถ้ามี และเก็บ log ตาม runbook
 
 ## ตัวอย่างไฟล์
-- [sample_import_batches.csv](samples/sample_import_batches.csv) — กรณี UPSERT/REPLACE
-- [sample_import_batches_delta.csv](samples/sample_import_batches_delta.csv) — กรณี DELTA/UPSERT ผสม
+- [sample_import_batches.csv](samples/sample_import_batches.csv) — กรณี UPSERT/REPLACE ตั้งยอดตรงกับไฟล์
+- [sample_import_batches_delta.csv](samples/sample_import_batches_delta.csv) — กรณี DELTA เพิ่ม/ลดยอดจากสต็อกปัจจุบัน
 
 ## การส่งออกที่เกี่ยวข้อง
 - **รายงานล็อตใกล้หมดอายุ**: `sku,name,lot_no,expire_date,qty,category`
