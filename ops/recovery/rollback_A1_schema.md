@@ -1,18 +1,20 @@
-# แผน Rollback โครงสร้างหลายล็อต (#A1)
+# แผน Rollback โครงสร้างหลายล็อต (A1)
 
-- **เวลาประมาณ**: 30 นาที (รวมตรวจสอบ)
+- **เวลาประมาณ**: 30–45 นาที (ขึ้นกับจำนวนสินค้า)
+- **เป้าหมาย**: ย้อนโครงสร้างกลับไปใช้ `products.qty` แบบเดิม โดยไม่สูญเสีย movement history
 
 ## Do
-- สำรองฐานข้อมูล (`php artisan inventory:backup`) ก่อนทุกครั้ง
-- ปิด traffic ชั่วคราวหรือสื่อสารให้ผู้ใช้หยุดบันทึกข้อมูล
-- รวมยอด `product_batches` กลับไปยัง `products.qty` ตามสินค้าล่าสุด
+- สำรองฐานข้อมูล (`php artisan inventory:backup`) ก่อนเริ่มทุกครั้ง
+- ปิด traffic หรือประกาศ freeze การบันทึกข้อมูลกับผู้ใช้
+- จดเวลาที่เริ่มและจบ rollback ใส่ incident log
 
-## Don't
-- อย่าลบตาราง/คอลัมน์ก่อนยืนยันว่า `products.qty` อัปเดตครบ
-- อย่าลบล็อตที่ยังมี movement ค้าง (จะทำให้ audit ขาด)
+## Don’t
+- อย่าลบตาราง/คอลัมน์ก่อนยืนยันว่า `products.qty` ถูกอัปเดตกลับแล้ว
+- อย่าลบข้อมูล `product_batches` ที่ยังผูกกับ `stock_movements` (ต้อง disable ก่อน)
+- อย่าลืมเปิด flag ราคา (`INVENTORY_ENABLE_PRICE`) หากเคยปรับชั่วคราวเพื่อการทดสอบ
 
-## ขั้นตอน
-1. ตรวจสอบจำนวนล็อต
+## ขั้นตอนดำเนินการ
+1. **ตรวจสอบยอดในแต่ละล็อต**
    ```bash
    php artisan tinker <<'PHP'
    use Illuminate\Support\Facades\DB;
@@ -28,7 +30,9 @@
        });
    PHP
    ```
-2. รวมยอดกลับไปที่ตารางสินค้า
+   - บันทึกผลลัพธ์เพื่อตรวจสอบหลัง rollback
+
+2. **รวมยอดกลับไปที่ตารางสินค้า**
    ```bash
    php artisan tinker <<'PHP'
    use Illuminate\Support\Facades\DB;
@@ -51,7 +55,8 @@
    echo "อัปเดต qty จากล็อตเสร็จสิ้น\n";
    PHP
    ```
-3. ตรวจยอดติดลบ (ต้องไม่มี)
+
+3. **ตรวจว่ายอดสินค้าไม่ติดลบ**
    ```bash
    php artisan tinker <<'PHP'
    use Illuminate\Support\Facades\DB;
@@ -71,19 +76,35 @@
    }
    PHP
    ```
-4. ปิดการใช้งานล็อต
+   - ถ้ามีค่าติดลบต้องตรวจย้อน movement ก่อนทำขั้นตอนถัดไป
+
+4. **ปิดการใช้งานล็อตและเตรียมลบโครงสร้าง**
    ```bash
    php artisan tinker <<'PHP'
    use Illuminate\Support\Facades\DB;
 
-   DB::table('product_batches')->update(['is_active' => 0]);
+   DB::table('product_batches')->update([
+       'is_active' => 0,
+   ]);
 
    echo "ปิดการใช้งาน product_batches เรียบร้อย\n";
    PHP
    ```
-5. ลบ constraint/ตารางที่เพิ่มมาใน #A1 อย่างปลอดภัย
-   - ลบ foreign key จาก `stock_movements.batch_id`
-   - ลบตาราง `product_batches`
-6. รัน `php artisan config:cache` และตรวจหน้า Product ว่ายอดกลับไปใช้ `products.qty`
 
-> หลัง rollback เสร็จให้บันทึกเหตุผลใน ticket และเก็บ snapshot ตาราง `stock_movements` ไว้ตรวจสอบย้อนหลัง
+5. **ลบ constraint/ตารางที่เพิ่มมาใน A1 อย่างปลอดภัย**
+   - ลบ foreign key `stock_movements_batch_id_foreign`
+   - ดรอปตาราง `product_lot_counters` และ `product_batches`
+   - ลบคอลัมน์ `batch_id` จาก `stock_movements`
+
+6. **รีเฟรช cache และตรวจ UI**
+   ```bash
+   php artisan config:clear
+   php artisan config:cache
+   php artisan view:clear
+   ```
+   - เปิดหน้า Product ตรวจว่ายอด `qty` ตรงกับข้อมูลที่รวมไว้ในข้อ 1
+
+## หลังดำเนินการ
+- เก็บ log คำสั่งทั้งหมดและผลลัพธ์ไว้ใน incident ticket
+- แจ้งทีม QA ให้รัน `php artisan test --group=legacy-qty` (หรือเทสต์ที่ตกลงไว้) เพื่อยืนยันความถูกต้อง
+- วางแผน deploy ใหม่เพื่อนำฟีเจอร์หลายล็อตกลับเมื่อปัญหาถูกแก้ไข

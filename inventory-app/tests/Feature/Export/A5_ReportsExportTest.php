@@ -11,6 +11,25 @@ use function Pest\Laravel\get;
 
 uses(RefreshDatabase::class);
 
+it('exposes report export shortcuts on the import/export hub', function (): void {
+    $user = User::factory()->create(['role' => 'admin']);
+    actingAs($user);
+
+    $response = get(route('import_export.index'));
+
+    $response->assertOk();
+    $response->assertSee('ดาวน์โหลด expiring-batches.csv');
+    $response->assertSee('ดาวน์โหลด low-stock.csv');
+
+    get(route('admin.reports.expiring-batches', ['export' => 'csv']))
+        ->assertOk()
+        ->assertHeader('content-type', 'text/csv; charset=UTF-8');
+
+    get(route('admin.reports.low-stock', ['export' => 'csv']))
+        ->assertOk()
+        ->assertHeader('content-type', 'text/csv; charset=UTF-8');
+});
+
 it('exports expiring batches without price columns', function (): void {
     config()->set('inventory.enable_price', false);
     Carbon::setTestNow('2024-06-01 08:00:00');
