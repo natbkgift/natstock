@@ -32,15 +32,7 @@ class ImportExportController extends Controller
             'file' => [
                 'required',
                 'file',
-                function (string $attribute, mixed $value, callable $fail): void {
-                    if (! $value instanceof UploadedFile) {
-                        return;
-                    }
-
-                    if (strtolower($value->getClientOriginalExtension()) !== 'csv') {
-                        $fail('กรุณาเลือกไฟล์นามสกุล .csv เท่านั้น');
-                    }
-                },
+                'mimes:csv',
             ],
         ]);
 

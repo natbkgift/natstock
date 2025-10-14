@@ -1,25 +1,14 @@
 @php
-    $labels = [
-        'sku' => 'SKU',
-        'qty' => 'จำนวน',
-        'name' => 'ชื่อสินค้า',
-        'category' => 'หมวดหมู่',
-        'lot_no' => 'หมายเลขล็อต',
-        'expire_date' => 'วันหมดอายุ (Y-m-d)',
-        'reorder_point' => 'จุดสั่งซื้อซ้ำ',
-        'note' => 'หมายเหตุ',
-        'is_active' => 'สถานะใช้งาน',
-    ];
-
-    $ignoredKeys = ['cost_price', 'sale_price'];
-    $headers = array_values(array_filter($preview['headers'] ?? [], fn ($header) => ! in_array($header, $ignoredKeys, true)));
+    $headers = $preview['headers'] ?? [];
+    $headerLabels = $preview['header_labels'] ?? [];
+    $previewLimit = $preview['preview_limit'] ?? 20;
 @endphp
 
 @if(empty($preview['rows']))
     <div class="text-muted">ไม่พบข้อมูลในไฟล์หรือข้อมูลทั้งหมดว่างเปล่า</div>
 @else
     <div class="d-flex justify-content-between align-items-center mb-2">
-        <span>ทั้งหมด {{ $preview['total_rows'] }} แถว (พรีวิวสูงสุด 20 แถว)</span>
+        <span>ทั้งหมด {{ $preview['total_rows'] }} แถว (พรีวิวสูงสุด {{ $previewLimit }} แถว)</span>
         @if(!empty($preview['ignored_columns']))
             <span class="badge badge-warning">คอลัมน์ราคาไม่ถูกใช้งาน: {{ implode(', ', $preview['ignored_columns']) }}</span>
         @endif
@@ -30,7 +19,7 @@
                 <tr>
                     <th style="width: 70px;" class="text-center">แถวที่</th>
                     @foreach($headers as $header)
-                        <th>{{ $labels[$header] ?? \Illuminate\Support\Str::of($header)->replace('_', ' ')->title() }}</th>
+                        <th>{{ $headerLabels[$header] ?? \Illuminate\Support\Str::of($header)->replace('_', ' ')->title() }}</th>
                     @endforeach
                     <th style="width: 220px;">สาเหตุ</th>
                 </tr>

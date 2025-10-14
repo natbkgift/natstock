@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 class CsvPreviewService
 {
     private const REQUIRED_HEADERS = ['sku', 'qty'];
+    private const PREVIEW_ROW_LIMIT = 20;
 
     private const HEADER_ALIASES = [
         'sku' => 'sku',
@@ -46,7 +47,14 @@ class CsvPreviewService
     private const IGNORED_HEADERS = ['cost_price', 'sale_price'];
 
     /**
-     * @return array{headers: array<int, string>, rows: array<int, array{row_number: int, cells: array<string, string>, errors: array<int, string>}>, total_rows: int, ignored_columns: array<int, string>}
+     * @return array{
+     *     headers: array<int, string>,
+     *     header_labels: array<string, string>,
+     *     rows: array<int, array{row_number: int, cells: array<string, string>, errors: array<int, string>}>,
+     *     total_rows: int,
+     *     ignored_columns: array<int, string>,
+     *     preview_limit: int
+     * }
      */
     public function preview(UploadedFile $csv): array
     {
@@ -78,7 +86,7 @@ class CsvPreviewService
             $cells = $this->mapRowToHeaders($row, $normalized);
             $errors = $this->validateRow($cells, $rowNumber);
 
-            if (count($rows) < 20) {
+            if (count($rows) < self::PREVIEW_ROW_LIMIT) {
                 $rows[] = [
                     'row_number' => $rowNumber,
                     'cells' => $cells,
@@ -92,12 +100,19 @@ class CsvPreviewService
         $this->assertRequiredHeadersPresent($normalized);
 
         $headers = array_values(array_filter(array_unique($normalized)));
+        $displayHeaders = array_values(array_filter($headers, fn ($header) => ! in_array($header, self::IGNORED_HEADERS, true)));
+        $headerLabels = [];
+        foreach ($displayHeaders as $header) {
+            $headerLabels[$header] = $this->headerLabel($header);
+        }
 
         return [
-            'headers' => $headers,
+            'headers' => $displayHeaders,
+            'header_labels' => $headerLabels,
             'rows' => $rows,
             'total_rows' => $totalRows,
             'ignored_columns' => $ignoredColumns,
+            'preview_limit' => self::PREVIEW_ROW_LIMIT,
         ];
     }
 
@@ -136,7 +151,7 @@ class CsvPreviewService
     private function normalizeHeaderName(?string $header): string
     {
         $header = $header ?? '';
-        $header = preg_replace('/^[\xEF\xBB\xBF]/', '', $header) ?? '';
+        $header = preg_replace('/^\xEF\xBB\xBF/u', '', $header) ?? '';
         $header = trim($header);
         $lower = Str::of($header)->lower()->replace(['-', ' '], '_')->toString();
 
@@ -195,11 +210,6 @@ class CsvPreviewService
         if (isset($cells['qty']) && $cells['qty'] !== '') {
             if (!ctype_digit(ltrim($cells['qty'], '+'))) {
                 $errors[] = sprintf('แถวที่ %d: จำนวนต้องเป็นจำนวนเต็มที่มากกว่าหรือเท่ากับ 0', $rowNumber);
-            } else {
-                $qty = (int) $cells['qty'];
-                if ($qty < 0) {
-                    $errors[] = sprintf('แถวที่ %d: จำนวนต้องเป็นจำนวนเต็มที่มากกว่าหรือเท่ากับ 0', $rowNumber);
-                }
             }
         }
 
@@ -257,7 +267,7 @@ class CsvPreviewService
             'sku' => 'SKU',
             'qty' => 'จำนวน',
             'lot_no' => 'หมายเลขล็อต',
-            'expire_date' => 'วันหมดอายุ',
+            'expire_date' => 'วันหมดอายุ (Y-m-d)',
             'name' => 'ชื่อสินค้า',
             'category' => 'หมวดหมู่',
             'reorder_point' => 'จุดสั่งซื้อซ้ำ',
