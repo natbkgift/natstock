@@ -103,7 +103,7 @@ class BackfillProductBatches extends Command
         $max = 1;
 
         foreach ($lotNos as $lotNo) {
-            if (preg_match('/LOT-(\d{2})/', $lotNo, $matches)) {
+            if (preg_match('/LOT-(\d+)/', $lotNo, $matches)) {
                 $value = (int) $matches[1];
                 $max = max($max, $value + 1);
             }
@@ -114,29 +114,19 @@ class BackfillProductBatches extends Command
 
     private function saveCounter(int $productId, int $nextNo): void
     {
-        $row = DB::table('product_lot_counters')
-            ->where('product_id', $productId)
-            ->lockForUpdate()
-            ->first();
-
         $timestamp = now();
 
-        if ($row === null) {
-            DB::table('product_lot_counters')->insert([
-                'product_id' => $productId,
-                'next_no' => $nextNo,
-                'created_at' => $timestamp,
-                'updated_at' => $timestamp,
-            ]);
-
-            return;
-        }
-
-        DB::table('product_lot_counters')
-            ->where('product_id', $productId)
-            ->update([
-                'next_no' => $nextNo,
-                'updated_at' => $timestamp,
-            ]);
+        DB::table('product_lot_counters')->upsert(
+            [
+                [
+                    'product_id' => $productId,
+                    'next_no' => $nextNo,
+                    'created_at' => $timestamp,
+                    'updated_at' => $timestamp,
+                ],
+            ],
+            ['product_id'],
+            ['next_no', 'updated_at']
+        );
     }
 }

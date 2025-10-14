@@ -15,7 +15,6 @@ class ProductBatch extends Model
     protected $fillable = [
         'product_id',
         'lot_no',
-        'sub_sku',
         'expire_date',
         'qty',
         'received_at',

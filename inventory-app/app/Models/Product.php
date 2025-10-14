@@ -72,14 +72,14 @@ class Product extends Model
                         'qty' => 0,
                         'is_active' => true,
                     ]);
-                }
 
-                DB::table('product_lot_counters')
-                    ->where('product_id', $product->id)
-                    ->update([
-                        'next_no' => 2,
-                        'updated_at' => now(),
-                    ]);
+                    DB::table('product_lot_counters')
+                        ->where('product_id', $product->id)
+                        ->update([
+                            'next_no' => 2,
+                            'updated_at' => now(),
+                        ]);
+                }
             });
         });
     }
