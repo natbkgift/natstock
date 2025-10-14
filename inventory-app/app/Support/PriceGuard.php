@@ -2,7 +2,7 @@
 
 namespace App\Support;
 
-class PriceGuard
+final class PriceGuard
 {
     /**
      * Strip pricing fields from the payload when the pricing feature is disabled.

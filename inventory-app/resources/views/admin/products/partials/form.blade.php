@@ -68,7 +68,33 @@
             <div class="invalid-feedback">{{ $message }}</div>
         @enderror
     </div>
-    <!-- ราคาทุนและราคาขายถูกลบตามคำขอ -->
+    @if(config('inventory.enable_price'))
+        <div class="form-group col-md-4">
+            <label for="cost_price">ราคาทุนต่อหน่วย</label>
+            <input type="number" step="0.01" min="0" name="cost_price" id="cost_price" class="form-control @error('cost_price') is-invalid @enderror" value="{{ old('cost_price', optional($product)->cost_price) }}">
+            @error('cost_price')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
+    @else
+        <div class="form-group col-md-4">
+            <label class="d-block">ราคาทุน</label>
+            <div class="alert alert-secondary mb-0">ระบบปิดการใช้งานราคาทุน/ราคาขายอยู่ ค่าดังกล่าวจะไม่ถูกบันทึก</div>
+        </div>
+    @endif
+</div>
+@if(config('inventory.enable_price'))
+    <div class="form-row">
+        <div class="form-group col-md-4">
+            <label for="sale_price">ราคาขายต่อหน่วย</label>
+            <input type="number" step="0.01" min="0" name="sale_price" id="sale_price" class="form-control @error('sale_price') is-invalid @enderror" value="{{ old('sale_price', optional($product)->sale_price) }}">
+            @error('sale_price')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
+    </div>
+@endif
+<div class="form-row">
     <div class="form-group col-md-4">
         <label class="d-block">สถานะการใช้งาน</label>
         <div class="custom-control custom-switch">
