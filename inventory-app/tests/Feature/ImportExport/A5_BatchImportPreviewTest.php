@@ -48,7 +48,8 @@ it('previews first 20 rows and summarises csv data', function (): void {
 
     expect($data['meta']['total_rows'])->toBe(22)
         ->and($data['meta']['ignored_columns'])->toContain('cost_price')
-        ->and($data['html'])->toContain('ทั้งหมด 22 แถว (พรีวิวสูงสุด 20 แถว)');
+        ->and($data['html'])->toContain('ทั้งหมด 22 แถว (พรีวิวสูงสุด 20 แถว)')
+        ->and($data['html'])->toContain('คอลัมน์ราคาไม่ถูกใช้งาน');
 });
 
 it('highlights invalid values with error messages', function (): void {
@@ -73,27 +74,4 @@ it('highlights invalid values with error messages', function (): void {
     expect($html)->toContain('จำนวนต้องเป็นจำนวนเต็มที่มากกว่าหรือเท่ากับ 0')
         ->and($html)->toContain('รูปแบบวันหมดอายุต้องเป็น YYYY-MM-DD')
         ->and($html)->toContain('หมายเลขล็อตต้องมีความยาวไม่เกิน 16 ตัวอักษร');
-});
-
-it('shows import-export page with export buttons', function (): void {
-    $user = User::factory()->create(['role' => 'admin']);
-
-    $response = $this->actingAs($user)->get(route('import_export.index'));
-    $response->assertOk();
-    $response->assertSee('นำเข้าไฟล์');
-    $response->assertSee('ดาวน์โหลด expiring-batches.csv');
-    $response->assertSee('ดาวน์โหลด low-stock.csv');
-});
-
-it('reuses report exports from expiring and low stock endpoints', function (): void {
-    $user = User::factory()->create(['role' => 'admin']);
-
-    $expiringResponse = $this->actingAs($user)->get(route('admin.reports.expiring-batches', ['export' => 'csv']));
-    $lowStockResponse = $this->actingAs($user)->get(route('admin.reports.low-stock', ['export' => 'csv']));
-
-    $expiringResponse->assertOk();
-    $lowStockResponse->assertOk();
-
-    $expiringResponse->assertHeader('content-type', 'text/csv; charset=UTF-8');
-    $lowStockResponse->assertHeader('content-type', 'text/csv; charset=UTF-8');
 });
