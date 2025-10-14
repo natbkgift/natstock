@@ -69,8 +69,8 @@
         @enderror
     </div>
 </div>
-@if(config('inventory.enable_price'))
-    <div class="form-row">
+<div class="form-row">
+    @if(config('inventory.enable_price'))
         <div class="form-group col-md-6">
             <label for="cost_price">ราคาทุนต่อหน่วย</label>
             <input type="number" step="0.01" min="0" name="cost_price" id="cost_price" class="form-control @error('cost_price') is-invalid @enderror" value="{{ old('cost_price', optional($product)->cost_price) }}">
@@ -85,15 +85,13 @@
                 <div class="invalid-feedback">{{ $message }}</div>
             @enderror
         </div>
-    </div>
-@else
-    <div class="form-row">
+    @else
         <div class="form-group col-md-8">
             <label class="d-block">ราคาทุนและราคาขาย</label>
             <div class="alert alert-secondary mb-0">ระบบปิดการใช้งานราคาทุน/ราคาขายอยู่ ค่าดังกล่าวจะไม่ถูกบันทึก</div>
         </div>
-    </div>
-@endif
+    @endif
+</div>
 <div class="form-row">
     <div class="form-group col-md-4">
         <label class="d-block">สถานะการใช้งาน</label>
