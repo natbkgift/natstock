@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\ProductBatch;
+use App\Services\SkuService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class Product extends Model
 {
@@ -34,6 +37,52 @@ class Product extends Model
         'qty' => 'integer',
         'is_active' => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Product $product): void {
+            if (blank($product->sku)) {
+                $product->sku = app(SkuService::class)->next();
+            }
+        });
+
+        static::created(function (Product $product): void {
+            DB::transaction(function () use ($product): void {
+                $counter = DB::table('product_lot_counters')
+                    ->where('product_id', $product->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($counter === null) {
+                    DB::table('product_lot_counters')->insert([
+                        'product_id' => $product->id,
+                        'next_no' => 1,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+
+                $hasInitialBatch = $product->batches()
+                    ->where('lot_no', 'LOT-01')
+                    ->exists();
+
+                if (!$hasInitialBatch) {
+                    $product->batches()->create([
+                        'lot_no' => 'LOT-01',
+                        'qty' => 0,
+                        'is_active' => true,
+                    ]);
+
+                    DB::table('product_lot_counters')
+                        ->where('product_id', $product->id)
+                        ->update([
+                            'next_no' => 2,
+                            'updated_at' => now(),
+                        ]);
+                }
+            });
+        });
+    }
 
     public function category(): BelongsTo
     {

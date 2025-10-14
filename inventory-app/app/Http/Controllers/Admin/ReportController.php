@@ -232,7 +232,7 @@ class ReportController extends Controller
             $like = '%' . $filters['search'] . '%';
             $query->where(function (Builder $subQuery) use ($like): void {
                 $subQuery
-                    ->where('sub_sku', 'like', $like)
+                    ->where('lot_no', 'like', $like)
                     ->orWhereHas('product', function (Builder $productQuery) use ($like): void {
                         $productQuery
                             ->where('sku', 'like', $like)
@@ -241,7 +241,7 @@ class ReportController extends Controller
             });
         }
 
-        return $query->orderBy('expire_date')->orderBy('sub_sku');
+        return $query->orderBy('expire_date')->orderBy('lot_no');
     }
 
     private function buildLowStockQuery(array $filters): Builder
@@ -251,7 +251,7 @@ class ReportController extends Controller
             ->with([
                 'category:id,name',
                 'batches' => function (HasMany $relation): void {
-                    $relation->active()->orderBy('expire_date')->orderBy('sub_sku')->take(3);
+                    $relation->active()->orderBy('expire_date')->orderBy('lot_no')->take(3);
                 },
             ])
             ->orderBy('qty_total')
@@ -285,7 +285,7 @@ class ReportController extends Controller
             return [
                 $product?->sku ?? '-',
                 $product?->name ?? '-',
-                $batch->sub_sku ?? '-',
+                $batch->lot_no ?? '-',
                 optional($batch->expire_date)->format('Y-m-d'),
                 (string) $batch->qty,
                 $categoryName,
@@ -294,7 +294,7 @@ class ReportController extends Controller
 
         return CsvExporter::download(
             $filename,
-            ['sku', 'name', 'sub_sku', 'expire_date', 'qty', 'category'],
+            ['sku', 'name', 'lot_no', 'expire_date', 'qty', 'category'],
             $rows
         );
     }

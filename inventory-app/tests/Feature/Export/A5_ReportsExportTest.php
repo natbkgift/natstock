@@ -18,7 +18,10 @@ it('exports expiring batches without price columns', function (): void {
     $user = User::factory()->create(['role' => 'admin']);
     actingAs($user);
 
-    $category = Category::factory()->create(['name' => 'เวชภัณฑ์']);
+    $category = Category::query()->firstOrCreate(
+        ['name' => 'เวชภัณฑ์'],
+        ['note' => 'อุปกรณ์การแพทย์และของใช้ในคลัง', 'is_active' => true]
+    );
     $product = Product::factory()->create([
         'sku' => 'SKU-EXP',
         'name' => 'น้ำยาฆ่าเชื้อ',
@@ -48,7 +51,7 @@ it('exports expiring batches without price columns', function (): void {
     $response->assertOk();
 
     $content = $response->streamedContent();
-    expect($content)->toContain('sku,name,sub_sku,expire_date,qty,category')
+    expect($content)->toContain('sku,name,lot_no,expire_date,qty,category')
         ->and($content)->toContain('EXP-30')
         ->and($content)->not->toContain('cost_price')
         ->and($content)->not->toContain('sale_price');

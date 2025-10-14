@@ -14,11 +14,11 @@ class BatchResolver
 
     public function resolveForProduct(
         Product $product,
-        ?string $subSku,
+        ?string $lotNo,
         ?Carbon $expireDate,
         bool $createIfMissing = true
     ): ProductBatch {
-        $normalized = $this->normalizeSubSku($subSku);
+        $normalized = $this->normalizeLotNo($lotNo);
         $normalizedExpireDate = $this->normalizeExpireDate($expireDate);
 
         if ($normalized === null) {
@@ -27,7 +27,7 @@ class BatchResolver
 
         $batch = ProductBatch::query()
             ->where('product_id', $product->id)
-            ->where('sub_sku', $normalized)
+            ->where('lot_no', $normalized)
             ->first();
 
         if ($batch !== null) {
@@ -42,7 +42,7 @@ class BatchResolver
 
         return ProductBatch::create([
             'product_id' => $product->id,
-            'sub_sku' => $normalized,
+            'lot_no' => $normalized,
             'expire_date' => $normalizedExpireDate,
             'qty' => 0,
             'is_active' => true,
@@ -51,12 +51,11 @@ class BatchResolver
 
     private function resolveUnspecifiedBatch(Product $product, bool $createIfMissing): ProductBatch
     {
-        // ใช้รูปแบบมาตรฐาน: `${SKU}-UNSPECIFIED`
-        $subSku = $product->sku . '-UNSPECIFIED';
+        $lotNo = 'LOT-01';
 
         $batch = ProductBatch::query()
             ->where('product_id', $product->id)
-            ->where('sub_sku', $subSku)
+            ->where('lot_no', $lotNo)
             ->first();
 
         if ($batch !== null) {
@@ -71,23 +70,23 @@ class BatchResolver
 
         return ProductBatch::create([
             'product_id' => $product->id,
-            'sub_sku' => $subSku,
+            'lot_no' => $lotNo,
             'expire_date' => null,
             'qty' => 0,
             'is_active' => true,
         ]);
     }
 
-    private function normalizeSubSku(?string $subSku): ?string
+    private function normalizeLotNo(?string $lotNo): ?string
     {
-        $value = trim((string) $subSku);
+        $value = trim((string) $lotNo);
 
         if ($value === '' || $value === self::UNSPECIFIED_TOKEN) {
             return null;
         }
 
-        if (mb_strlen($value) > 64) {
-            $value = mb_substr($value, 0, 64);
+        if (mb_strlen($value) > 16) {
+            $value = mb_substr($value, 0, 16);
         }
 
         return Str::of($value)->squish()->toString();

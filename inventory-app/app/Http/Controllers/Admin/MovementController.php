@@ -251,7 +251,7 @@ class MovementController extends Controller
                 'form_type' => ['required', 'in:in,out'],
                 'product_id' => ['required', 'exists:products,id'],
                 'qty' => ['required', 'integer', 'min:1'],
-                'sub_sku' => ['nullable', 'string', 'max:64'],
+                'sub_sku' => ['nullable', 'string', 'max:16'],
                 'expire_date' => ['nullable', 'date_format:Y-m-d'],
                 'note' => ['nullable', 'string'],
             ],
@@ -262,7 +262,7 @@ class MovementController extends Controller
                 'qty.integer' => 'จำนวนต้องเป็นตัวเลขจำนวนเต็ม',
                 'qty.min' => 'จำนวนต้องมากกว่าศูนย์',
                 'sub_sku.string' => 'รหัสล็อตต้องเป็นข้อความ',
-                'sub_sku.max' => 'รหัสล็อตต้องไม่เกิน 64 ตัวอักษร',
+                'sub_sku.max' => 'รหัสล็อตต้องไม่เกิน 16 ตัวอักษร',
                 'expire_date.date_format' => 'รูปแบบวันหมดอายุไม่ถูกต้อง (ใช้รูปแบบ YYYY-MM-DD)',
                 'note.string' => 'หมายเหตุต้องเป็นข้อความ',
             ]
@@ -276,7 +276,7 @@ class MovementController extends Controller
                 'form_type' => ['required', 'in:adjust'],
                 'product_id' => ['required', 'exists:products,id'],
                 'target_qty' => ['required', 'integer', 'min:0'],
-                'sub_sku' => ['required', 'string', 'max:64'],
+                'sub_sku' => ['required', 'string', 'max:16'],
                 'note' => ['nullable', 'string'],
             ],
             [
@@ -287,7 +287,7 @@ class MovementController extends Controller
                 'target_qty.min' => 'จำนวนต้องมากกว่าหรือเท่ากับศูนย์',
                 'sub_sku.required' => 'กรุณาเลือกรหัสล็อต',
                 'sub_sku.string' => 'รหัสล็อตต้องเป็นข้อความ',
-                'sub_sku.max' => 'รหัสล็อตต้องไม่เกิน 64 ตัวอักษร',
+                'sub_sku.max' => 'รหัสล็อตต้องไม่เกิน 16 ตัวอักษร',
                 'note.string' => 'หมายเหตุต้องเป็นข้อความ',
             ]
         );
@@ -305,7 +305,7 @@ class MovementController extends Controller
             return null;
         }
 
-        return mb_substr($subSku, 0, 64);
+        return mb_substr($subSku, 0, 16);
     }
 
     private function resolvePrefillValues(Request $request): array
@@ -398,7 +398,7 @@ class MovementController extends Controller
 
         return Product::query()
             ->whereIn('id', $productIds)
-            ->with(['batches' => fn ($query) => $query->orderBy('sub_sku')])
+            ->with(['batches' => fn ($query) => $query->orderBy('lot_no')])
             ->orderBy('sku')
             ->get()
             ->map(function (Product $product) {
