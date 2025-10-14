@@ -1255,7 +1255,7 @@ class ImportService
             }
 
             $batchCache[$batchKey] = $batch;
-            $qtyChanged = $qtyChanged || ($movementType !== null && $movementQty > 0) || ($mode === self::MODE_UPSERT_DELTA && $row['qty'] === 0 && $beforeQty !== $batch->qty);
+            $qtyChanged = $qtyChanged || ($movementType !== null && $movementQty > 0);
         }
 
         if ($qtyChanged) {
@@ -1462,8 +1462,8 @@ class ImportService
             if ($expireRaw === '') {
                 $normalized['expire_date'] = null;
             } else {
-                $date = Carbon::createFromFormat('Y-m-d', $expireRaw);
-                if ($date === false || $date->format('Y-m-d') !== $expireRaw) {
+                $date = Carbon::createFromFormat('!Y-m-d', $expireRaw);
+                if ($date === false) {
                     $errors[] = 'รูปแบบวันหมดอายุต้องเป็น YYYY-MM-DD';
                 } else {
                     $normalized['expire_date'] = $date->format('Y-m-d');
