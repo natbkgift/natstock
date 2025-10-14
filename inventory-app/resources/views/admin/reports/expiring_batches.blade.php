@@ -20,10 +20,10 @@
         <form method="GET" class="mb-4">
             <div class="form-row">
                 <div class="form-group col-md-3">
-                    <label for="days">ภายในกี่วัน</label>
+                    <label for="days">ช่วงเวลาที่ต้องการเตือน</label>
                     <select name="days" id="days" class="form-control">
                         @foreach($dayOptions as $option)
-                            <option value="{{ $option }}" @selected((int) ($filters['days'] ?? 30) === $option)>ภายใน {{ $option }} วัน</option>
+                            <option value="{{ $option['value'] }}" @selected(($filters['days'] ?? 30) === $option['value'])>{{ $option['label'] }}</option>
                         @endforeach
                     </select>
                 </div>
