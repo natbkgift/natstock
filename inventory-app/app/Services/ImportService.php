@@ -353,7 +353,7 @@ class ImportService
 
             $product = Product::create($productData);
 
-            $this->createMovement($product, 'in', $row['qty'], 'import:create', $actor);
+            $this->createMovement($product, 'receive', $row['qty'], 'import:create', $actor);
 
             return 'created';
         }
@@ -382,9 +382,9 @@ class ImportService
         $product->update($updateData);
 
         if ($delta > 0) {
-            $this->createMovement($product, 'in', $delta, $this->buildAdjustNote($delta), $actor);
+            $this->createMovement($product, 'receive', $delta, $this->buildAdjustNote($delta), $actor);
         } elseif ($delta < 0) {
-            $this->createMovement($product, 'out', abs($delta), $this->buildAdjustNote($delta), $actor);
+            $this->createMovement($product, 'issue', abs($delta), $this->buildAdjustNote($delta), $actor);
         }
 
         return 'updated';

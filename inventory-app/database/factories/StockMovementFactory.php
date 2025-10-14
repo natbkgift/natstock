@@ -15,7 +15,7 @@ class StockMovementFactory extends Factory
 
     public function definition(): array
     {
-        $types = ['in', 'out', 'adjust'];
+        $types = ['receive', 'issue', 'adjust'];
         $notes = [
             'รับเข้าจากซัพพลายเออร์',
             'ตัดจ่ายเพื่อนำไปใช้ในห้องพยาบาล',

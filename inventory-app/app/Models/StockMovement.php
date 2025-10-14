@@ -46,9 +46,9 @@ class StockMovement extends Model
         $qty = number_format($this->qty);
 
         switch ($this->type) {
-            case 'in':
+            case 'receive':
                 return '+' . $qty;
-            case 'out':
+            case 'issue':
                 return '-' . $qty;
             case 'adjust':
                 return 'Δ' . $qty;

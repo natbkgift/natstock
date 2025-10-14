@@ -13,19 +13,19 @@
 @endpush
 
 @php
-    $activeTab = $prefill['active_tab'] ?? 'in';
+    $activeTab = $prefill['active_tab'] ?? 'receive';
     $defaultForms = [
-        'in' => ['product_id' => null, 'qty' => null, 'sub_sku' => null, 'expire_date' => null, 'note' => null],
-        'out' => ['product_id' => null, 'qty' => null, 'sub_sku' => null, 'note' => null],
-        'adjust' => ['product_id' => null, 'target_qty' => null, 'sub_sku' => null, 'note' => null],
+        'receive' => ['product_id' => null, 'qty' => null, 'expire_date' => null, 'note' => null],
+        'issue' => ['product_id' => null, 'qty' => null, 'lot_no' => null, 'note' => null],
+        'adjust' => ['product_id' => null, 'new_qty' => null, 'lot_no' => null, 'note' => null],
     ];
     $formValues = [
-        'in' => array_merge($defaultForms['in'], $prefill['in'] ?? []),
-        'out' => array_merge($defaultForms['out'], $prefill['out'] ?? []),
+        'receive' => array_merge($defaultForms['receive'], $prefill['receive'] ?? []),
+        'issue' => array_merge($defaultForms['issue'], $prefill['issue'] ?? []),
         'adjust' => array_merge($defaultForms['adjust'], $prefill['adjust'] ?? []),
     ];
-    $typeLabels = ['in' => 'รับเข้า', 'out' => 'เบิกออก', 'adjust' => 'ปรับยอด'];
-    $typeClasses = ['in' => 'success', 'out' => 'danger', 'adjust' => 'warning'];
+    $typeLabels = ['receive' => 'รับเข้า', 'issue' => 'เบิกออก', 'adjust' => 'ปรับยอด'];
+    $typeClasses = ['receive' => 'success', 'issue' => 'danger', 'adjust' => 'warning'];
 @endphp
 
 @section('content')
@@ -33,138 +33,112 @@
 <div class="card card-outline card-primary mb-4">
     <div class="card-header p-2">
         <ul class="nav nav-pills" id="movement-tabs">
-            <li class="nav-item"><a class="nav-link {{ $activeTab === 'in' ? 'active' : '' }}" href="#tab-in" data-toggle="tab">รับเข้า</a></li>
-            <li class="nav-item"><a class="nav-link {{ $activeTab === 'out' ? 'active' : '' }}" href="#tab-out" data-toggle="tab">เบิกออก</a></li>
+            <li class="nav-item"><a class="nav-link {{ $activeTab === 'receive' ? 'active' : '' }}" href="#tab-receive" data-toggle="tab">รับของ</a></li>
+            <li class="nav-item"><a class="nav-link {{ $activeTab === 'issue' ? 'active' : '' }}" href="#tab-issue" data-toggle="tab">เบิกของ</a></li>
             <li class="nav-item"><a class="nav-link {{ $activeTab === 'adjust' ? 'active' : '' }}" href="#tab-adjust" data-toggle="tab">ปรับยอด</a></li>
         </ul>
     </div>
     <div class="card-body">
         <div class="tab-content">
-            <div class="tab-pane fade {{ $activeTab === 'in' ? 'show active' : '' }}" id="tab-in">
+            <div class="tab-pane fade {{ $activeTab === 'receive' ? 'show active' : '' }}" id="tab-receive">
                 @php
-                    $selectedProductIn = $formValues['in']['product_id'];
-                    $selectedBatchIn = $formValues['in']['sub_sku'];
+                    $receiveProduct = $formValues['receive']['product_id'];
                 @endphp
-                <form action="{{ route('admin.movements.store.in') }}" method="POST">
+                <form id="form-receive" class="movement-form" method="POST" data-action-template="{{ route('admin.products.receive', ['product' => '__PRODUCT__']) }}">
                     @csrf
-                    <input type="hidden" name="form_type" value="in">
+                    <input type="hidden" name="form_type" value="receive">
                     <div class="form-row">
-                        <div class="form-group col-md-4">
-                            <label for="product_in">เลือกสินค้า</label>
-                            <select name="product_id" id="product_in" class="form-control select2-product @if($activeTab === 'in' && $errors->has('product_id')) is-invalid @endif" data-placeholder="ค้นหาสินค้า..." data-batch-target="#batch_in" required>
+                        <div class="form-group col-md-5">
+                            <label for="product_receive">เลือกสินค้า</label>
+                            <select name="product_id" id="product_receive" class="form-control select2-product @if($activeTab === 'receive' && $errors->has('product_id')) is-invalid @endif" data-placeholder="ค้นหาสินค้า..." required>
                                 <option value="">-- เลือกสินค้า --</option>
                                 @foreach($productOptions as $product)
-                                    <option value="{{ $product['id'] }}" data-qty="{{ number_format($product['qty']) }}" {{ (string) $selectedProductIn === (string) $product['id'] ? 'selected' : '' }}>
+                                    <option value="{{ $product['id'] }}" data-qty="{{ number_format($product['qty']) }}" {{ (string) $receiveProduct === (string) $product['id'] ? 'selected' : '' }}>
                                         [{{ $product['sku'] }}] {{ $product['name'] }} (คงเหลือ {{ number_format($product['qty']) }})
                                     </option>
                                 @endforeach
                             </select>
-                            @if($activeTab === 'in' && $errors->has('product_id'))
+                            @if($activeTab === 'receive' && $errors->has('product_id'))
                                 <div class="invalid-feedback d-block">{{ $errors->first('product_id') }}</div>
                             @endif
                         </div>
-                        <div class="form-group col-md-4">
-                            <label for="batch_in">ล็อต (Sub-SKU)</label>
-                            <select name="sub_sku" id="batch_in" class="form-control select2-batch @if($activeTab === 'in' && $errors->has('sub_sku')) is-invalid @endif" data-allow-unspecified="1" data-product-input="#product_in">
-                                <option value="__UNSPECIFIED__" {{ empty($selectedBatchIn) || $selectedBatchIn === '__UNSPECIFIED__' ? 'selected' : '' }}>ไม่ระบุ (UNSPECIFIED)</option>
-                                @if($selectedProductIn && isset($initialBatchOptions[$selectedProductIn]))
-                                    @foreach($initialBatchOptions[$selectedProductIn] as $batch)
-                                        <option value="{{ $batch['sub_sku'] }}" data-expire="{{ $batch['expire_date_th'] }}" {{ (string) $selectedBatchIn === (string) $batch['sub_sku'] ? 'selected' : '' }}>
-                                            {{ $batch['label'] }} (คงเหลือ {{ number_format($batch['qty']) }})
-                                        </option>
-                                    @endforeach
-                                @endif
-                            </select>
-                            <small class="form-text text-muted">หากไม่เลือก ระบบจะจัดไปที่ล็อต UNSPECIFIED</small>
-                            @if($activeTab === 'in' && $errors->has('sub_sku'))
-                                <div class="invalid-feedback d-block">{{ $errors->first('sub_sku') }}</div>
-                            @endif
-                        </div>
-                        <div class="form-group col-md-2">
-                            <label for="expire_date_in">วันหมดอายุ (ถ้ามี)</label>
-                            <input type="date" name="expire_date" id="expire_date_in" class="form-control @if($activeTab === 'in' && $errors->has('expire_date')) is-invalid @endif" value="{{ $formValues['in']['expire_date'] }}">
-                            @if($activeTab === 'in' && $errors->has('expire_date'))
+                        <div class="form-group col-md-3">
+                            <label for="expire_date_receive">วันหมดอายุ (ถ้ามี)</label>
+                            <input type="date" name="expire_date" id="expire_date_receive" class="form-control @if($activeTab === 'receive' && $errors->has('expire_date')) is-invalid @endif" value="{{ $formValues['receive']['expire_date'] }}">
+                            @if($activeTab === 'receive' && $errors->has('expire_date'))
                                 <div class="invalid-feedback">{{ $errors->first('expire_date') }}</div>
                             @endif
                         </div>
                         <div class="form-group col-md-2">
-                            <label for="qty_in">จำนวนรับเข้า</label>
-                            <input type="number" name="qty" id="qty_in" class="form-control @if($activeTab === 'in' && $errors->has('qty')) is-invalid @endif" placeholder="ระบุจำนวน" min="1" value="{{ $formValues['in']['qty'] }}" required>
-                            @if($activeTab === 'in' && $errors->has('qty'))
+                            <label for="qty_receive">จำนวน</label>
+                            <input type="number" name="qty" id="qty_receive" class="form-control @if($activeTab === 'receive' && $errors->has('qty')) is-invalid @endif" min="0" step="1" value="{{ $formValues['receive']['qty'] }}" required>
+                            @if($activeTab === 'receive' && $errors->has('qty'))
                                 <div class="invalid-feedback">{{ $errors->first('qty') }}</div>
                             @endif
                         </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group col-md-8">
-                            <label for="note_in">หมายเหตุ</label>
-                            <input type="text" name="note" id="note_in" class="form-control @if($activeTab === 'in' && $errors->has('note')) is-invalid @endif" placeholder="เพิ่มเติม (ถ้ามี)" value="{{ $formValues['in']['note'] }}">
-                            @if($activeTab === 'in' && $errors->has('note'))
+                        <div class="form-group col-md-2">
+                            <label for="note_receive">หมายเหตุ</label>
+                            <input type="text" name="note" id="note_receive" class="form-control @if($activeTab === 'receive' && $errors->has('note')) is-invalid @endif" placeholder="เพิ่มเติม (ถ้ามี)" value="{{ $formValues['receive']['note'] }}">
+                            @if($activeTab === 'receive' && $errors->has('note'))
                                 <div class="invalid-feedback">{{ $errors->first('note') }}</div>
                             @endif
                         </div>
-                        @can('access-staff')
-                            <div class="form-group col-md-4 d-flex align-items-end">
-                                <button type="button" class="btn btn-outline-primary btn-block btn-open-batch-modal" data-product-select="#product_in" data-batch-select="#batch_in">+ สร้างล็อตใหม่</button>
-                            </div>
-                        @endcan
                     </div>
                     <div class="text-right">
                         <button type="submit" class="btn btn-success">บันทึกรับเข้า</button>
                     </div>
                 </form>
             </div>
-            <div class="tab-pane fade {{ $activeTab === 'out' ? 'show active' : '' }}" id="tab-out">
+            <div class="tab-pane fade {{ $activeTab === 'issue' ? 'show active' : '' }}" id="tab-issue">
                 @php
-                    $selectedProductOut = $formValues['out']['product_id'];
-                    $selectedBatchOut = $formValues['out']['sub_sku'];
+                    $issueProduct = $formValues['issue']['product_id'];
+                    $issueLot = $formValues['issue']['lot_no'];
                 @endphp
-                <form action="{{ route('admin.movements.store.out') }}" method="POST">
+                <form id="form-issue" class="movement-form" method="POST" data-action-template="{{ route('admin.products.issue', ['product' => '__PRODUCT__']) }}">
                     @csrf
-                    <input type="hidden" name="form_type" value="out">
+                    <input type="hidden" name="form_type" value="issue">
                     <div class="form-row">
                         <div class="form-group col-md-4">
-                            <label for="product_out">เลือกสินค้า</label>
-                            <select name="product_id" id="product_out" class="form-control select2-product @if($activeTab === 'out' && $errors->has('product_id')) is-invalid @endif" data-placeholder="ค้นหาสินค้า..." data-batch-target="#batch_out" required>
+                            <label for="product_issue">เลือกสินค้า</label>
+                            <select name="product_id" id="product_issue" class="form-control select2-product @if($activeTab === 'issue' && $errors->has('product_id')) is-invalid @endif" data-batch-target="#lot_issue" data-placeholder="ค้นหาสินค้า..." required>
                                 <option value="">-- เลือกสินค้า --</option>
                                 @foreach($productOptions as $product)
-                                    <option value="{{ $product['id'] }}" data-qty="{{ number_format($product['qty']) }}" {{ (string) $selectedProductOut === (string) $product['id'] ? 'selected' : '' }}>
+                                    <option value="{{ $product['id'] }}" data-qty="{{ number_format($product['qty']) }}" {{ (string) $issueProduct === (string) $product['id'] ? 'selected' : '' }}>
                                         [{{ $product['sku'] }}] {{ $product['name'] }} (คงเหลือ {{ number_format($product['qty']) }})
                                     </option>
                                 @endforeach
                             </select>
-                            @if($activeTab === 'out' && $errors->has('product_id'))
+                            @if($activeTab === 'issue' && $errors->has('product_id'))
                                 <div class="invalid-feedback d-block">{{ $errors->first('product_id') }}</div>
                             @endif
                         </div>
                         <div class="form-group col-md-4">
-                            <label for="batch_out">ล็อต (Sub-SKU)</label>
-                            <select name="sub_sku" id="batch_out" class="form-control select2-batch @if($activeTab === 'out' && $errors->has('sub_sku')) is-invalid @endif" data-allow-unspecified="1" data-product-input="#product_out">
-                                <option value="__UNSPECIFIED__" {{ empty($selectedBatchOut) || $selectedBatchOut === '__UNSPECIFIED__' ? 'selected' : '' }}>ไม่ระบุ (UNSPECIFIED)</option>
-                                @if($selectedProductOut && isset($initialBatchOptions[$selectedProductOut]))
-                                    @foreach($initialBatchOptions[$selectedProductOut] as $batch)
-                                        <option value="{{ $batch['sub_sku'] }}" data-expire="{{ $batch['expire_date_th'] }}" {{ (string) $selectedBatchOut === (string) $batch['sub_sku'] ? 'selected' : '' }}>
-                                            {{ $batch['label'] }} (คงเหลือ {{ number_format($batch['qty']) }})
+                            <label for="lot_issue">ล็อต (เลือกได้หรือปล่อยว่างเพื่อให้ระบบเลือกอัตโนมัติ)</label>
+                            <select name="lot_no" id="lot_issue" class="form-control select2-batch @if($activeTab === 'issue' && $errors->has('lot_no')) is-invalid @endif" data-mode="issue" data-product-input="#product_issue">
+                                <option value="">ให้ระบบเลือกอัตโนมัติ</option>
+                                @if($issueProduct && isset($initialBatchOptions[$issueProduct]))
+                                    @foreach($initialBatchOptions[$issueProduct] as $batch)
+                                        <option value="{{ $batch['lot_no'] }}" data-expire="{{ $batch['expire_date_th'] }}" data-qty="{{ $batch['qty'] }}" {{ (string) $issueLot === (string) $batch['lot_no'] ? 'selected' : '' }}>
+                                            {{ $batch['label'] }}
                                         </option>
                                     @endforeach
                                 @endif
                             </select>
-                            <small class="form-text text-muted">ถ้าไม่เลือกจะถือเป็นล็อต UNSPECIFIED</small>
-                            @if($activeTab === 'out' && $errors->has('sub_sku'))
-                                <div class="invalid-feedback d-block">{{ $errors->first('sub_sku') }}</div>
+                            @if($activeTab === 'issue' && $errors->has('lot_no'))
+                                <div class="invalid-feedback d-block">{{ $errors->first('lot_no') }}</div>
                             @endif
                         </div>
                         <div class="form-group col-md-2">
-                            <label for="qty_out">จำนวนเบิกออก</label>
-                            <input type="number" name="qty" id="qty_out" class="form-control @if($activeTab === 'out' && $errors->has('qty')) is-invalid @endif" placeholder="ระบุจำนวน" min="1" value="{{ $formValues['out']['qty'] }}" required>
-                            @if($activeTab === 'out' && $errors->has('qty'))
+                            <label for="qty_issue">จำนวน</label>
+                            <input type="number" name="qty" id="qty_issue" class="form-control @if($activeTab === 'issue' && $errors->has('qty')) is-invalid @endif" min="1" step="1" value="{{ $formValues['issue']['qty'] }}" required>
+                            @if($activeTab === 'issue' && $errors->has('qty'))
                                 <div class="invalid-feedback">{{ $errors->first('qty') }}</div>
                             @endif
                         </div>
                         <div class="form-group col-md-2">
-                            <label for="note_out">หมายเหตุ</label>
-                            <input type="text" name="note" id="note_out" class="form-control @if($activeTab === 'out' && $errors->has('note')) is-invalid @endif" placeholder="เพิ่มเติม (ถ้ามี)" value="{{ $formValues['out']['note'] }}">
-                            @if($activeTab === 'out' && $errors->has('note'))
+                            <label for="note_issue">หมายเหตุ</label>
+                            <input type="text" name="note" id="note_issue" class="form-control @if($activeTab === 'issue' && $errors->has('note')) is-invalid @endif" placeholder="เพิ่มเติม (ถ้ามี)" value="{{ $formValues['issue']['note'] }}">
+                            @if($activeTab === 'issue' && $errors->has('note'))
                                 <div class="invalid-feedback">{{ $errors->first('note') }}</div>
                             @endif
                         </div>
@@ -172,7 +146,7 @@
                     <div class="form-row">
                         @can('access-staff')
                             <div class="form-group col-md-4">
-                                <button type="button" class="btn btn-outline-primary btn-block btn-open-batch-modal" data-product-select="#product_out" data-batch-select="#batch_out">+ สร้างล็อตใหม่</button>
+                                <button type="button" class="btn btn-outline-primary btn-block btn-open-batch-modal" data-product-select="#product_issue" data-batch-select="#lot_issue">+ สร้างล็อตใหม่</button>
                             </div>
                         @endcan
                     </div>
@@ -183,19 +157,19 @@
             </div>
             <div class="tab-pane fade {{ $activeTab === 'adjust' ? 'show active' : '' }}" id="tab-adjust">
                 @php
-                    $selectedProductAdjust = $formValues['adjust']['product_id'];
-                    $selectedBatchAdjust = $formValues['adjust']['sub_sku'];
+                    $adjustProduct = $formValues['adjust']['product_id'];
+                    $adjustLot = $formValues['adjust']['lot_no'];
                 @endphp
-                <form action="{{ route('admin.movements.store.adjust') }}" method="POST">
+                <form id="form-adjust" class="movement-form" method="POST" data-action-template="{{ route('admin.products.adjust', ['product' => '__PRODUCT__']) }}">
                     @csrf
                     <input type="hidden" name="form_type" value="adjust">
                     <div class="form-row">
                         <div class="form-group col-md-4">
                             <label for="product_adjust">เลือกสินค้า</label>
-                            <select name="product_id" id="product_adjust" class="form-control select2-product @if($activeTab === 'adjust' && $errors->has('product_id')) is-invalid @endif" data-placeholder="ค้นหาสินค้า..." data-batch-target="#batch_adjust" required>
+                            <select name="product_id" id="product_adjust" class="form-control select2-product @if($activeTab === 'adjust' && $errors->has('product_id')) is-invalid @endif" data-batch-target="#lot_adjust" data-placeholder="ค้นหาสินค้า..." required>
                                 <option value="">-- เลือกสินค้า --</option>
                                 @foreach($productOptions as $product)
-                                    <option value="{{ $product['id'] }}" data-qty="{{ number_format($product['qty']) }}" {{ (string) $selectedProductAdjust === (string) $product['id'] ? 'selected' : '' }}>
+                                    <option value="{{ $product['id'] }}" data-qty="{{ number_format($product['qty']) }}" {{ (string) $adjustProduct === (string) $product['id'] ? 'selected' : '' }}>
                                         [{{ $product['sku'] }}] {{ $product['name'] }} (คงเหลือ {{ number_format($product['qty']) }})
                                     </option>
                                 @endforeach
@@ -205,26 +179,26 @@
                             @endif
                         </div>
                         <div class="form-group col-md-4">
-                            <label for="batch_adjust">ล็อต (Sub-SKU)</label>
-                            <select name="sub_sku" id="batch_adjust" class="form-control select2-batch @if($activeTab === 'adjust' && $errors->has('sub_sku')) is-invalid @endif" data-allow-unspecified="1" data-product-input="#product_adjust" required>
-                                <option value="__UNSPECIFIED__" {{ empty($selectedBatchAdjust) || $selectedBatchAdjust === '__UNSPECIFIED__' ? 'selected' : '' }}>ไม่ระบุ (UNSPECIFIED)</option>
-                                @if($selectedProductAdjust && isset($initialBatchOptions[$selectedProductAdjust]))
-                                    @foreach($initialBatchOptions[$selectedProductAdjust] as $batch)
-                                        <option value="{{ $batch['sub_sku'] }}" data-expire="{{ $batch['expire_date_th'] }}" {{ (string) $selectedBatchAdjust === (string) $batch['sub_sku'] ? 'selected' : '' }}>
-                                            {{ $batch['label'] }} (คงเหลือ {{ number_format($batch['qty']) }})
+                            <label for="lot_adjust">ล็อตที่ต้องการปรับ</label>
+                            <select name="lot_no" id="lot_adjust" class="form-control select2-batch @if($activeTab === 'adjust' && $errors->has('lot_no')) is-invalid @endif" data-mode="adjust" data-product-input="#product_adjust" required>
+                                <option value="">-- เลือกล็อต --</option>
+                                @if($adjustProduct && isset($initialBatchOptions[$adjustProduct]))
+                                    @foreach($initialBatchOptions[$adjustProduct] as $batch)
+                                        <option value="{{ $batch['lot_no'] }}" data-expire="{{ $batch['expire_date_th'] }}" data-qty="{{ $batch['qty'] }}" {{ (string) $adjustLot === (string) $batch['lot_no'] ? 'selected' : '' }}>
+                                            {{ $batch['label'] }}
                                         </option>
                                     @endforeach
                                 @endif
                             </select>
-                            @if($activeTab === 'adjust' && $errors->has('sub_sku'))
-                                <div class="invalid-feedback d-block">{{ $errors->first('sub_sku') }}</div>
+                            @if($activeTab === 'adjust' && $errors->has('lot_no'))
+                                <div class="invalid-feedback d-block">{{ $errors->first('lot_no') }}</div>
                             @endif
                         </div>
                         <div class="form-group col-md-2">
-                            <label for="target_qty">จำนวนที่ควรเป็น</label>
-                            <input type="number" name="target_qty" id="target_qty" class="form-control @if($activeTab === 'adjust' && $errors->has('target_qty')) is-invalid @endif" placeholder="ระบุจำนวนสุดท้าย" min="0" value="{{ $formValues['adjust']['target_qty'] }}" required>
-                            @if($activeTab === 'adjust' && $errors->has('target_qty'))
-                                <div class="invalid-feedback">{{ $errors->first('target_qty') }}</div>
+                            <label for="new_qty_adjust">จำนวนใหม่</label>
+                            <input type="number" name="new_qty" id="new_qty_adjust" class="form-control @if($activeTab === 'adjust' && $errors->has('new_qty')) is-invalid @endif" min="0" step="1" value="{{ $formValues['adjust']['new_qty'] }}" required>
+                            @if($activeTab === 'adjust' && $errors->has('new_qty'))
+                                <div class="invalid-feedback">{{ $errors->first('new_qty') }}</div>
                             @endif
                         </div>
                         <div class="form-group col-md-2">
@@ -238,7 +212,7 @@
                     <div class="form-row">
                         @can('access-staff')
                             <div class="form-group col-md-4">
-                                <button type="button" class="btn btn-outline-primary btn-block btn-open-batch-modal" data-product-select="#product_adjust" data-batch-select="#batch_adjust">+ สร้างล็อตใหม่</button>
+                                <button type="button" class="btn btn-outline-primary btn-block btn-open-batch-modal" data-product-select="#product_adjust" data-batch-select="#lot_adjust">+ สร้างล็อตใหม่</button>
                             </div>
                         @endcan
                     </div>
@@ -249,6 +223,7 @@
             </div>
         </div>
     </div>
+</div>
 @can('access-staff')
 <div class="modal fade" id="modal-create-batch" tabindex="-1" role="dialog" aria-labelledby="modal-create-batch-label" aria-hidden="true">
     <div class="modal-dialog" role="document">
@@ -265,10 +240,6 @@
                     @csrf
                     <input type="hidden" name="product_id" value="">
                     <input type="hidden" name="batch_select" value="">
-                    <div class="form-group">
-                        <label for="modal_sub_sku">รหัสล็อต (Sub-SKU)</label>
-                        <input type="text" id="modal_sub_sku" name="sub_sku" class="form-control" maxlength="64" required>
-                    </div>
                     <div class="form-group">
                         <label for="modal_expire_date">วันหมดอายุ (ถ้ามี)</label>
                         <input type="date" id="modal_expire_date" name="expire_date" class="form-control">
@@ -310,8 +281,8 @@
                     <label for="type">ประเภท</label>
                     <select name="type" id="type" class="form-control">
                         <option value="">ทั้งหมด</option>
-                        <option value="in" {{ $filters['type'] === 'in' ? 'selected' : '' }}>รับเข้า</option>
-                        <option value="out" {{ $filters['type'] === 'out' ? 'selected' : '' }}>เบิกออก</option>
+                        <option value="receive" {{ $filters['type'] === 'receive' ? 'selected' : '' }}>รับเข้า</option>
+                        <option value="issue" {{ $filters['type'] === 'issue' ? 'selected' : '' }}>เบิกออก</option>
                         <option value="adjust" {{ $filters['type'] === 'adjust' ? 'selected' : '' }}>ปรับยอด</option>
                     </select>
                 </div>
@@ -349,7 +320,7 @@
                             </td>
                             <td>
                                 @if($movement->batch)
-                                    <div>{{ $movement->batch->sub_sku }}</div>
+                                    <div>{{ $movement->batch->lot_no }}</div>
                                     @if($movement->batch->expire_date)
                                         <small class="text-muted">หมดอายุ {{ $movement->batch->expire_date->locale('th')->translatedFormat('d M Y') }}</small>
                                     @else
@@ -386,12 +357,10 @@
 </div>
 @endsection
 
-
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
     $(function () {
-        const UNSPECIFIED_VALUE = '__UNSPECIFIED__';
         const batchCache = @json($initialBatchOptions);
         const batchIndexUrlTemplate = @json(route('admin.products.batches.index', ['product' => '__PRODUCT__']));
         const batchStoreUrlTemplate = @json(route('admin.products.batches.store', ['product' => '__PRODUCT__']));
@@ -425,48 +394,56 @@
             return `${product.text ?? ''} (คงเหลือ ${qty ?? '-'})`;
         }
 
-        function renderBatchOptions($select, batches, selectedValue) {
-            const allowUnspecified = String($select.data('allow-unspecified')) === '1';
-            let targetValue = selectedValue ?? null;
+        function formatBatchLabel(batch) {
+            const expireText = batch.expire_date_th ? `หมดอายุ ${batch.expire_date_th}` : 'ไม่ระบุวันหมดอายุ';
+            return `${batch.lot_no} — คงเหลือ ${new Intl.NumberFormat('th-TH').format(batch.qty ?? 0)} — ${expireText}`;
+        }
+
+        function filterBatchesByMode(batches, mode) {
+            if (mode === 'issue') {
+                return (batches || []).filter(batch => (batch.qty ?? 0) > 0);
+            }
+
+            return batches || [];
+        }
+
+        function renderBatchOptions($select, batches, selectedValue, mode) {
+            const targetBatches = filterBatchesByMode(batches, mode);
+            const currentValue = selectedValue ?? '';
+            const allowBlank = mode !== 'adjust';
 
             $select.empty();
 
-            if (allowUnspecified) {
-                const isSelected = !targetValue || targetValue === UNSPECIFIED_VALUE;
-                const option = new Option('ไม่ระบุ (UNSPECIFIED)', UNSPECIFIED_VALUE, false, isSelected);
-                $select.append(option);
-                if (!targetValue) {
-                    targetValue = UNSPECIFIED_VALUE;
-                }
+            if (allowBlank) {
+                const label = mode === 'issue' ? 'ให้ระบบเลือกอัตโนมัติ' : '-- เลือกล็อต --';
+                $select.append(new Option(label, '', false, currentValue === ''));
             }
 
-            (batches || [])
+            targetBatches
                 .slice()
-                .sort((a, b) => (a.sub_sku || '').localeCompare(b.sub_sku || '', 'th'))
+                .sort((a, b) => (a.lot_no || '').localeCompare(b.lot_no || '', 'th'))
                 .forEach(batch => {
-                    const label = `${batch.label} (คงเหลือ ${new Intl.NumberFormat('th-TH').format(batch.qty ?? 0)})`;
-                    const option = new Option(label, batch.sub_sku, false, targetValue === batch.sub_sku);
+                    const option = new Option(formatBatchLabel(batch), batch.lot_no, false, currentValue === batch.lot_no);
                     if (batch.expire_date_th) {
                         $(option).attr('data-expire', batch.expire_date_th);
                     }
+                    $(option).attr('data-qty', batch.qty ?? 0);
                     $select.append(option);
                 });
-
-            if (targetValue) {
-                $select.val(targetValue);
-            }
 
             $select.trigger('change.select2');
         }
 
         function populateBatchSelect($select, productId, selectedValue) {
+            const mode = String($select.data('mode') || 'adjust');
+
             if (!productId) {
-                renderBatchOptions($select, [], selectedValue);
+                renderBatchOptions($select, [], selectedValue, mode);
                 return;
             }
 
             if (batchCache[productId]) {
-                renderBatchOptions($select, batchCache[productId], selectedValue);
+                renderBatchOptions($select, batchCache[productId], selectedValue, mode);
                 return;
             }
 
@@ -476,10 +453,10 @@
             $.getJSON(url)
                 .done(response => {
                     batchCache[productId] = response.results || [];
-                    renderBatchOptions($select, batchCache[productId], selectedValue);
+                    renderBatchOptions($select, batchCache[productId], selectedValue, mode);
                 })
                 .fail(() => {
-                    renderBatchOptions($select, [], selectedValue);
+                    renderBatchOptions($select, [], selectedValue, mode);
                 })
                 .always(() => {
                     $select.prop('disabled', false);
@@ -527,16 +504,35 @@
 
             if (batchTarget) {
                 const $batchSelect = $(batchTarget);
-                const productId = $productSelect.val();
-                const selectedBatch = $batchSelect.val();
-
-                populateBatchSelect($batchSelect, productId, selectedBatch);
+                populateBatchSelect($batchSelect, $productSelect.val(), $batchSelect.val());
 
                 $productSelect.on('change', function () {
-                    const newProductId = $(this).val();
-                    populateBatchSelect($batchSelect, newProductId, UNSPECIFIED_VALUE);
+                    populateBatchSelect($batchSelect, $(this).val(), '');
                 });
             }
+        });
+
+        $('.movement-form').each(function () {
+            const $form = $(this);
+            const actionTemplate = String($form.data('action-template') || '');
+            const $productSelect = $form.find('.select2-product');
+
+            $form.on('submit', function (event) {
+                const productId = $productSelect.val();
+
+                if (!productId) {
+                    event.preventDefault();
+                    alert('กรุณาเลือกสินค้าก่อนบันทึก');
+                    return false;
+                }
+
+                if (actionTemplate.includes('__PRODUCT__')) {
+                    const action = actionTemplate.replace('__PRODUCT__', productId);
+                    $form.attr('action', action);
+                }
+
+                return true;
+            });
         });
 
         $('.btn-open-batch-modal').on('click', function () {
@@ -568,7 +564,6 @@
             const url = batchStoreUrlTemplate.replace('__PRODUCT__', productId);
 
             const payload = {
-                sub_sku: $form.find('input[name=sub_sku]').val(),
                 expire_date: $form.find('input[name=expire_date]').val(),
                 note: $form.find('textarea[name=note]').val(),
             };
@@ -583,11 +578,11 @@
                     }
 
                     const batch = response.batch;
-                    batchCache[productId] = batchCache[productId].filter(item => item.sub_sku !== batch.sub_sku);
+                    batchCache[productId] = batchCache[productId].filter(item => item.lot_no !== batch.lot_no);
                     batchCache[productId].push(batch);
 
                     const $target = $(batchSelectSelector);
-                    populateBatchSelect($target, productId, batch.sub_sku);
+                    populateBatchSelect($target, productId, batch.lot_no);
                 })
                 .fail(xhr => {
                     let message = 'ไม่สามารถสร้างล็อตใหม่ได้';

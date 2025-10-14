@@ -6,24 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductBatch;
 use App\Models\StockMovement;
-use App\Services\AuditLogger;
-use App\Services\StockMovementService;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class MovementController extends Controller
 {
-    public function __construct(
-        private readonly AuditLogger $auditLogger,
-        private readonly StockMovementService $stockMovementService
-    )
-    {
-    }
-
     public function index(Request $request): View
     {
         $this->authorize('viewAny', StockMovement::class);
@@ -44,7 +34,7 @@ class MovementController extends Controller
                         ->orWhere('name', 'like', "%{$search}%");
                 });
             })
-            ->when(in_array($type, ['in', 'out', 'adjust'], true), fn ($query) => $query->where('type', $type))
+            ->when(in_array($type, ['receive', 'issue', 'adjust'], true), fn ($query) => $query->where('type', $type))
             ->when($fromDate, fn ($query) => $query->where('happened_at', '>=', $fromDate))
             ->when($toDate, fn ($query) => $query->where('happened_at', '<=', $toDate))
             ->orderByDesc('happened_at');
@@ -65,7 +55,7 @@ class MovementController extends Controller
             'prefill' => $prefill,
             'filters' => [
                 'search' => $search,
-                'type' => in_array($type, ['in', 'out', 'adjust'], true) ? $type : null,
+                'type' => in_array($type, ['receive', 'issue', 'adjust'], true) ? $type : null,
                 'date_from' => $fromDate?->toDateString(),
                 'date_to' => $toDate?->toDateString(),
             ],
@@ -104,127 +94,6 @@ class MovementController extends Controller
         ]);
     }
 
-    public function storeIn(Request $request): RedirectResponse
-    {
-        $this->authorize('create', StockMovement::class);
-
-        $validated = $this->validateInboundOutbound($request);
-
-        $product = Product::query()->findOrFail($validated['product_id']);
-        $subSku = $this->normalizeIncomingSubSku($validated['sub_sku'] ?? null);
-        $expireDate = $validated['expire_date'] !== null
-            ? Carbon::createFromFormat('Y-m-d', $validated['expire_date'])->startOfDay()
-            : null;
-
-        $result = $this->stockMovementService->receive(
-            $product,
-            (int) $validated['qty'],
-            $subSku,
-            $expireDate,
-            $validated['note'] ?? null
-        );
-
-        $this->auditLogger->log(
-            'stock.in',
-            'รับสินค้าเข้าคลัง',
-            [
-                'product_sku' => $result['product']->sku,
-                'product_name' => $result['product']->name,
-                'qty' => $validated['qty'],
-                'batch_sub_sku' => $result['batch']->sub_sku,
-                'batch_before_qty' => $result['batch_before'],
-                'batch_after_qty' => $result['batch_after'],
-                'before_qty' => $result['product_before'],
-                'after_qty' => $result['product_after'],
-            ],
-            $result['movement'],
-            $request->user(),
-        );
-
-        return redirect()
-            ->route('admin.movements.index')
-            ->with('status', 'ทำรายการสำเร็จ');
-    }
-
-    public function storeOut(Request $request): RedirectResponse
-    {
-        $this->authorize('create', StockMovement::class);
-
-        $validated = $this->validateInboundOutbound($request);
-
-        $product = Product::query()->findOrFail($validated['product_id']);
-        $subSku = $this->normalizeIncomingSubSku($validated['sub_sku'] ?? null);
-
-        $result = $this->stockMovementService->issue(
-            $product,
-            (int) $validated['qty'],
-            $subSku,
-            $validated['note'] ?? null
-        );
-
-        $this->auditLogger->log(
-            'stock.out',
-            'เบิกสินค้าออกจากคลัง',
-            [
-                'product_sku' => $result['product']->sku,
-                'product_name' => $result['product']->name,
-                'qty' => $validated['qty'],
-                'batch_sub_sku' => $result['batch']->sub_sku,
-                'batch_before_qty' => $result['batch_before'],
-                'batch_after_qty' => $result['batch_after'],
-                'before_qty' => $result['product_before'],
-                'after_qty' => $result['product_after'],
-            ],
-            $result['movement'],
-            $request->user(),
-        );
-
-        return redirect()
-            ->route('admin.movements.index')
-            ->with('status', 'ทำรายการสำเร็จ');
-    }
-
-    public function storeAdjust(Request $request): RedirectResponse
-    {
-        $this->authorize('create', StockMovement::class);
-
-        $validated = $this->validateAdjust($request);
-
-        $product = Product::query()->findOrFail($validated['product_id']);
-        $subSku = $this->normalizeIncomingSubSku($validated['sub_sku']);
-
-        $result = $this->stockMovementService->adjust(
-            $product,
-            (int) $validated['target_qty'],
-            $subSku ?? '',
-            $validated['note'] ?? null
-        );
-
-        $delta = $result['batch_after'] - $result['batch_before'];
-        $deltaText = $delta > 0 ? "+{$delta}" : (string) $delta;
-
-        $this->auditLogger->log(
-            'stock.adjust',
-            'ปรับปรุงยอดสต็อก',
-            [
-                'product_sku' => $result['product']->sku,
-                'product_name' => $result['product']->name,
-                'delta' => $delta,
-                'batch_sub_sku' => $result['batch']->sub_sku,
-                'batch_before_qty' => $result['batch_before'],
-                'batch_after_qty' => $result['batch_after'],
-                'before_qty' => $result['product_before'],
-                'after_qty' => $result['product_after'],
-            ],
-            $result['movement'],
-            $request->user(),
-        );
-
-        return redirect()
-            ->route('admin.movements.index')
-            ->with('status', "ปรับยอดสต็อกเรียบร้อย (Δ{$deltaText})");
-    }
-
     private function parseDate(?string $value): ?Carbon
     {
         if ($value === null) {
@@ -244,75 +113,11 @@ class MovementController extends Controller
         }
     }
 
-    private function validateInboundOutbound(Request $request): array
-    {
-        return $request->validate(
-            [
-                'form_type' => ['required', 'in:in,out'],
-                'product_id' => ['required', 'exists:products,id'],
-                'qty' => ['required', 'integer', 'min:1'],
-                'sub_sku' => ['nullable', 'string', 'max:16'],
-                'expire_date' => ['nullable', 'date_format:Y-m-d'],
-                'note' => ['nullable', 'string'],
-            ],
-            [
-                'product_id.required' => 'กรุณาเลือกสินค้า',
-                'product_id.exists' => 'สินค้าไม่ถูกต้อง',
-                'qty.required' => 'กรุณาระบุจำนวน',
-                'qty.integer' => 'จำนวนต้องเป็นตัวเลขจำนวนเต็ม',
-                'qty.min' => 'จำนวนต้องมากกว่าศูนย์',
-                'sub_sku.string' => 'รหัสล็อตต้องเป็นข้อความ',
-                'sub_sku.max' => 'รหัสล็อตต้องไม่เกิน 16 ตัวอักษร',
-                'expire_date.date_format' => 'รูปแบบวันหมดอายุไม่ถูกต้อง (ใช้รูปแบบ YYYY-MM-DD)',
-                'note.string' => 'หมายเหตุต้องเป็นข้อความ',
-            ]
-        );
-    }
-
-    private function validateAdjust(Request $request): array
-    {
-        return $request->validate(
-            [
-                'form_type' => ['required', 'in:adjust'],
-                'product_id' => ['required', 'exists:products,id'],
-                'target_qty' => ['required', 'integer', 'min:0'],
-                'sub_sku' => ['required', 'string', 'max:16'],
-                'note' => ['nullable', 'string'],
-            ],
-            [
-                'product_id.required' => 'กรุณาเลือกสินค้า',
-                'product_id.exists' => 'สินค้าไม่ถูกต้อง',
-                'target_qty.required' => 'กรุณาระบุจำนวนที่ควรเป็น',
-                'target_qty.integer' => 'จำนวนต้องเป็นตัวเลขจำนวนเต็ม',
-                'target_qty.min' => 'จำนวนต้องมากกว่าหรือเท่ากับศูนย์',
-                'sub_sku.required' => 'กรุณาเลือกรหัสล็อต',
-                'sub_sku.string' => 'รหัสล็อตต้องเป็นข้อความ',
-                'sub_sku.max' => 'รหัสล็อตต้องไม่เกิน 16 ตัวอักษร',
-                'note.string' => 'หมายเหตุต้องเป็นข้อความ',
-            ]
-        );
-    }
-
-    private function normalizeIncomingSubSku(?string $subSku): ?string
-    {
-        if ($subSku === null) {
-            return null;
-        }
-
-        $subSku = trim($subSku);
-
-        if ($subSku === '' || $subSku === '__UNSPECIFIED__') {
-            return null;
-        }
-
-        return mb_substr($subSku, 0, 16);
-    }
-
     private function resolvePrefillValues(Request $request): array
     {
-        $allowedTabs = ['in', 'out', 'adjust'];
+        $allowedTabs = ['receive', 'issue', 'adjust'];
         $requestedTab = $request->string('form_type')->toString();
-        $activeTab = old('form_type', in_array($requestedTab, $allowedTabs, true) ? $requestedTab : 'in');
+        $activeTab = old('form_type', in_array($requestedTab, $allowedTabs, true) ? $requestedTab : 'receive');
 
         $resolver = function (string $tab, string $key, $default = null) use ($request, $activeTab) {
             if (old('form_type') === $tab && old($key) !== null) {
@@ -326,35 +131,34 @@ class MovementController extends Controller
             return $default;
         };
 
-        $inProduct = $resolver('in', 'product_id');
-        $outProduct = $resolver('out', 'product_id');
+        $receiveProduct = $resolver('receive', 'product_id');
+        $issueProduct = $resolver('issue', 'product_id');
         $adjustProduct = $resolver('adjust', 'product_id');
 
         $productIds = array_values(array_unique(array_filter([
-            $inProduct,
-            $outProduct,
+            $receiveProduct,
+            $issueProduct,
             $adjustProduct,
         ], fn ($value) => (int) $value > 0)));
 
         return [
             'active_tab' => $activeTab,
-            'in' => [
-                'product_id' => $inProduct,
-                'qty' => $resolver('in', 'qty'),
-                'sub_sku' => $resolver('in', 'sub_sku'),
-                'expire_date' => $resolver('in', 'expire_date'),
-                'note' => $resolver('in', 'note'),
+            'receive' => [
+                'product_id' => $receiveProduct,
+                'qty' => $resolver('receive', 'qty'),
+                'expire_date' => $resolver('receive', 'expire_date'),
+                'note' => $resolver('receive', 'note'),
             ],
-            'out' => [
-                'product_id' => $outProduct,
-                'qty' => $resolver('out', 'qty'),
-                'sub_sku' => $resolver('out', 'sub_sku'),
-                'note' => $resolver('out', 'note'),
+            'issue' => [
+                'product_id' => $issueProduct,
+                'qty' => $resolver('issue', 'qty'),
+                'lot_no' => $resolver('issue', 'lot_no'),
+                'note' => $resolver('issue', 'note'),
             ],
             'adjust' => [
                 'product_id' => $adjustProduct,
-                'target_qty' => $resolver('adjust', 'target_qty'),
-                'sub_sku' => $resolver('adjust', 'sub_sku'),
+                'new_qty' => $resolver('adjust', 'new_qty'),
+                'lot_no' => $resolver('adjust', 'lot_no'),
                 'note' => $resolver('adjust', 'note'),
             ],
             'product_ids' => $productIds,
@@ -363,7 +167,7 @@ class MovementController extends Controller
 
     /**
      * @param array<int, array{id:int, sku:string, name:string, qty:int, reorder_point:int, batches: \Illuminate\Support\Collection}> $productOptions
-     * @return array<int, array<int, array{sub_sku: string, label: string, expire_date_th: ?string, qty: int}>>
+     * @return array<int, array<int, array{lot_no: string, label: string, expire_date_th: ?string, qty: int}>>
      */
     private function buildBatchOptions(array $productOptions): array
     {
@@ -373,7 +177,7 @@ class MovementController extends Controller
             $options[$product['id']] = $product['batches']
                 ->map(function (ProductBatch $batch) {
                     return [
-                        'sub_sku' => $batch->sub_sku,
+                        'lot_no' => $batch->lot_no,
                         'label' => $this->formatBatchLabel($batch),
                         'expire_date_th' => $this->formatExpireDate($batch),
                         'qty' => (int) $batch->qty,
@@ -398,7 +202,7 @@ class MovementController extends Controller
 
         return Product::query()
             ->whereIn('id', $productIds)
-            ->with(['batches' => fn ($query) => $query->orderBy('lot_no')])
+            ->with(['batches' => fn ($query) => $query->where('is_active', true)->orderBy('lot_no')])
             ->orderBy('sku')
             ->get()
             ->map(function (Product $product) {
@@ -417,7 +221,7 @@ class MovementController extends Controller
 
     private function formatBatchLabel(ProductBatch $batch): string
     {
-        $parts = [$batch->sub_sku];
+        $parts = [$batch->lot_no];
 
         if ($batch->expire_date !== null) {
             $parts[] = $batch->expire_date->locale('th')->translatedFormat('d M Y');

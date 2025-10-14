@@ -83,7 +83,7 @@ test('นำเข้าสินค้าใหม่และสร้าง m
     assertSameValue('25.50', number_format((float) $product->cost_price, 2, '.', ''));
     assertSameValue($category->getKey(), $product->category_id);
     assertSameValue(1, count($movements));
-    assertSameValue('in', $movements[0]->type);
+    assertSameValue('receive', $movements[0]->type);
     assertSameValue(12, $movements[0]->qty);
     assertSameValue('import:create', $movements[0]->note);
     assertSameValue($user->getKey(), $movements[0]->actor_id);
@@ -119,7 +119,7 @@ test('อัปเดตสินค้าเดิมในโหมด UPSERT 
 
     assertNotNull($product);
     assertSameValue(1, count($movements));
-    assertSameValue('in', $movements[0]->type);
+    assertSameValue('receive', $movements[0]->type);
     assertSameValue(4, $movements[0]->qty);
     assertStringContains('Δ+4', $movements[0]->note);
     assertSameValue('มันฝรั่งรสใหม่', $product->name);
