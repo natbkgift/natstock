@@ -1,10 +1,12 @@
 <div class="form-row">
-    @if(isset($product) && $product->exists)
     <div class="form-group col-md-4">
         <label for="sku">รหัสสินค้า (SKU)</label>
-        <input type="text" name="sku" id="sku" class="form-control" value="{{ $product->sku }}" readonly>
+        <input type="text" name="sku" id="sku" class="form-control @error('sku') is-invalid @enderror" value="{{ old('sku', optional($product)->sku) }}" placeholder="ปล่อยว่างให้ระบบสร้างอัตโนมัติ">
+        <small class="form-text text-muted">ปล่อยว่างหากต้องการให้ระบบสร้างรหัสให้อัตโนมัติ</small>
+        @error('sku')
+            <div class="invalid-feedback">{{ $message }}</div>
+        @enderror
     </div>
-    @endif
     <div class="form-group col-md-8">
         <label for="name">ชื่อสินค้า <span class="text-danger">*</span></label>
         <input type="text" name="name" id="name" class="form-control @error('name') is-invalid @enderror" placeholder="ระบุชื่อสินค้า" value="{{ old('name', optional($product)->name) }}" required>
@@ -17,13 +19,13 @@
     <div class="form-group col-md-6">
         <label for="category_id">หมวดหมู่สินค้า <span class="text-danger">*</span></label>
         <div class="input-group">
-            <select name="category_id" id="category_id" class="form-control select2 @error('category_id') is-invalid @enderror" required data-placeholder="เลือกหมวดหมู่สินค้า">
+            <select name="category_id" id="category_id" class="form-control select2 @error('category_id') is-invalid @enderror" data-placeholder="เลือกหมวดหมู่สินค้า">
                 <option value="">-- เลือกหมวดหมู่ --</option>
                 @foreach($categories as $categoryOption)
                     <option value="{{ $categoryOption->id }}" {{ (string) old('category_id', optional($product)->category_id) === (string) $categoryOption->id ? 'selected' : '' }}>{{ $categoryOption->name }}</option>
                 @endforeach
             </select>
-            <input type="text" name="new_category" id="new_category" class="form-control ml-2" placeholder="เพิ่มหมวดหมู่ใหม่" value="{{ old('new_category') }}">
+            <input type="text" name="new_category_name" id="new_category_name" class="form-control ml-2" placeholder="เพิ่มหมวดหมู่ใหม่" value="{{ old('new_category_name') }}">
             <div class="input-group-append">
                 <button type="button" class="btn btn-outline-success" id="btn-save-category">บันทึกหมวดหมู่</button>
             </div>
@@ -32,7 +34,7 @@
         @error('category_id')
             <div class="invalid-feedback d-block">{{ $message }}</div>
         @enderror
-        @error('new_category')
+        @error('new_category_name')
             <div class="invalid-feedback d-block">{{ $message }}</div>
         @enderror
     </div>

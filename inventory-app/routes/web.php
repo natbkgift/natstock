@@ -69,17 +69,19 @@ Route::middleware(['web','auth'])->prefix('admin')->name('admin.')->group(functi
     Route::post('products/{product}/issue', [ProductMovementController::class, 'storeIssue'])->name('products.issue');
     Route::post('products/{product}/adjust', [ProductMovementController::class, 'storeAdjust'])->name('products.adjust');
 
-    // Import
-    Route::get('import', [ImportController::class, 'index'])->name('import.index');
-    Route::post('import/preview', [ImportController::class, 'preview'])->name('import.preview');
-    Route::post('import/commit', [ImportController::class, 'commit'])->name('import.commit');
-    // Back-compat: legacy link used query parameter ?token=... (keep working for existing links)
-    Route::get('import/errors/download', [ImportController::class, 'downloadErrorsLegacy'])
-        ->middleware('signed')
-        ->name('import.errors.download.legacy');
-    Route::get('import/errors/download/{token}', [ImportController::class, 'downloadErrors'])
-        ->middleware('signed')
-        ->name('import.errors.download');
+    // Import (disabled unless feature flag enabled)
+    Route::middleware('import.enabled')->group(function () {
+        Route::get('import', [ImportController::class, 'index'])->name('import.index');
+        Route::post('import/preview', [ImportController::class, 'preview'])->name('import.preview');
+        Route::post('import/commit', [ImportController::class, 'commit'])->name('import.commit');
+        // Back-compat: legacy link used query parameter ?token=... (keep working for existing links)
+        Route::get('import/errors/download', [ImportController::class, 'downloadErrorsLegacy'])
+            ->middleware('signed')
+            ->name('import.errors.download.legacy');
+        Route::get('import/errors/download/{token}', [ImportController::class, 'downloadErrors'])
+            ->middleware('signed')
+            ->name('import.errors.download');
+    });
 
     // Notifications
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
@@ -124,7 +126,7 @@ Route::middleware(['web','auth'])->prefix('admin')->name('admin.')->group(functi
     Route::get('product-batches/expiring', [\App\Http\Controllers\Admin\ProductBatchController::class, 'expiring'])->name('product-batches.expiring');
 });
 
-Route::middleware(['web', 'auth'])->group(function () {
+Route::middleware(['web', 'auth', 'import.enabled'])->group(function () {
     Route::get('/admin/import-export', [ImportExportController::class, 'index'])->name('import_export.index');
     Route::post('/admin/import-export/preview', [ImportExportController::class, 'preview'])->name('import_export.preview');
     Route::post('/admin/import-export/process', [ImportExportController::class, 'process'])->name('import_export.process');

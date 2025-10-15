@@ -119,9 +119,7 @@ it('ignores pricing columns during import preview and removes them from exports 
         'auto_create_category' => '1',
     ]);
 
-    $preview->assertOk();
-    $preview->assertSee('คอลัมน์ราคาไม่ถูกใช้งาน (ignored)');
-    $preview->assertDontSee('cost_price');
+    $preview->assertNotFound();
 
     Product::factory()->lowStock()->create(['reorder_point' => 10, 'qty' => 3]);
 

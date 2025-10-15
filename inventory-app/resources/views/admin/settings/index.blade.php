@@ -19,6 +19,14 @@
                     @csrf
                     <div class="card-body">
                         <div class="form-group">
+                            <label for="site_name">ชื่อเว็บไซต์</label>
+                            <input type="text" name="site_name" id="site_name" class="form-control @error('site_name') is-invalid @enderror" value="{{ old('site_name', $values['site_name']) }}" maxlength="120" required>
+                            <small class="form-text text-muted">ชื่อจะแสดงในหัวเว็บและส่วนหัวของแต่ละหน้า</small>
+                            @error('site_name')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div class="form-group">
                             <label for="alert_expiring_days">ช่วงวันแจ้งเตือนสินค้าใกล้หมดอายุ (คั่นด้วย ,)</label>
                             <input type="text" name="alert_expiring_days" id="alert_expiring_days" class="form-control" value="{{ old('alert_expiring_days', $values['alert_expiring_days']) }}" required>
                             <small class="form-text text-muted">ตัวอย่าง: 30,60,90</small>

@@ -10,6 +10,7 @@ return [
         'notify_channels' => 'inapp,email,line',
         'notify_emails' => 'manager@example.com,owner@example.com',
         'daily_scan_time' => '08:00',
+        'site_name' => config('app_brand.site_name'),
     ],
     'notify_channel_options' => [
         'inapp' => 'แจ้งเตือนในระบบ',
@@ -22,4 +23,5 @@ return [
         'default_expiring_days' => 30,
     ],
     'enable_price' => (bool) env('INVENTORY_ENABLE_PRICE', false),
+    'import_enabled' => (bool) env('INVENTORY_IMPORT_ENABLED', false),
 ];

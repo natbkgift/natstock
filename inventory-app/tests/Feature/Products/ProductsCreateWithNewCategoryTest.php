@@ -19,7 +19,7 @@ it('can create product with new category from form', function () {
         'reorder_point' => 2,
         'is_active' => 1,
         'category_id' => '',
-        'new_category' => 'หมวดใหม่ทดสอบ',
+        'new_category_name' => 'หมวดใหม่ทดสอบ',
         'note' => 'เพิ่มหมวดหมู่ใหม่',
     ];
 

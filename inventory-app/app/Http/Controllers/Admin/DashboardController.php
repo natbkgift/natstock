@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\UserAlertState;
 use App\Services\AlertSnapshotService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -20,7 +23,6 @@ class DashboardController extends Controller
     {
         Gate::authorize('access-viewer');
 
-        $pricingEnabled = (bool) config('inventory.enable_price');
         $snapshot = $this->alerts->buildSnapshot();
         $user = $request->user();
 
@@ -30,19 +32,13 @@ class DashboardController extends Controller
         $lowStockCount = $lowStockSnapshot['count'];
         $expiringCount = $expiringSnapshot['count'];
 
-        $stockValue = 0.0;
-        $stockValueFormatted = 'ปิดใช้งาน';
-
-        if ($pricingEnabled) {
-            $stockValue = (float) ($this->totalStockValue() ?? 0);
-            $stockValueFormatted = $this->formatThaiNumber($stockValue);
-        }
-
         $recentMovements = StockMovement::query()
-            ->with(['product', 'actor'])
+            ->with(['product', 'actor', 'batch'])
             ->orderByDesc('happened_at')
             ->limit(10)
             ->get();
+
+        $productSummary = $this->loadProductSummary();
 
         $alertStates = $this->resolveAlertStates($user?->id, $snapshot);
         $shouldShowModal = $alertStates['low_stock']['show'] || $alertStates['expiring']['show'];
@@ -51,23 +47,39 @@ class DashboardController extends Controller
             'expiringDays' => $expiringSnapshot['days'],
             'expiringCount' => $expiringCount,
             'lowStockCount' => $lowStockCount,
-            'pricingEnabled' => $pricingEnabled,
-            'stockValueFormatted' => $stockValueFormatted,
             'recentMovements' => $recentMovements,
+            'productSummary' => $productSummary,
             'alertStates' => $alertStates,
             'shouldShowAlerts' => $shouldShowModal,
         ]);
     }
 
-    private function formatThaiNumber(float $value): string
+    private function loadProductSummary(): Collection
     {
-        // แสดงเลขอารบิก ไม่มีทศนิยม
-        return number_format($value, 0);
-    }
+        $movementSub = DB::table('stock_movements')
+            ->select('product_id', DB::raw('MAX(happened_at) as last_moved_at'))
+            ->groupBy('product_id');
 
-    private function totalStockValue(): ?string
-    {
-        return \App\Models\Product::query()->selectRaw('SUM(qty * cost_price) as total')->value('total');
+        return Product::query()
+            ->select('products.id', 'products.sku', 'products.name', 'products.qty')
+            ->selectRaw('COALESCE(movement_stats.last_moved_at, products.updated_at, products.created_at) as last_moved_at')
+            ->leftJoinSub($movementSub, 'movement_stats', 'movement_stats.product_id', '=', 'products.id')
+            ->withSum(['batches as active_qty_total' => fn ($query) => $query->where('is_active', true)], 'qty')
+            ->withCount(['batches as active_batches_count' => fn ($query) => $query->where('is_active', true)])
+            ->orderByDesc('last_moved_at')
+            ->orderBy('products.name')
+            ->limit(10)
+            ->get()
+            ->map(function (Product $product) {
+                $totalQty = $product->active_qty_total ?? $product->qty;
+
+                return [
+                    'sku' => $product->sku,
+                    'name' => $product->name,
+                    'qty' => (int) $totalQty,
+                    'active_batches' => (int) ($product->active_batches_count ?? 0),
+                ];
+            });
     }
 
     /**

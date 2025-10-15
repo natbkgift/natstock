@@ -16,6 +16,7 @@ class SystemSettingRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'site_name' => ['required', 'string', 'max:120'],
             'alert_expiring_days' => ['required', 'string', 'regex:/^\s*\d+(?:\s*,\s*\d+)*\s*$/u'],
             'expiring_days' => ['required', 'integer', 'min:1', 'max:365'],
             'notify_low_stock' => ['sometimes', 'boolean'],
@@ -47,6 +48,9 @@ class SystemSettingRequest extends FormRequest
             'notify_emails.string' => 'กรุณาระบุอีเมลในรูปแบบข้อความ',
             'daily_scan_time.required' => 'กรุณาระบุเวลาในการสแกนประจำวัน',
             'daily_scan_time.date_format' => 'กรุณาระบุเวลาเป็นรูปแบบ HH:MM (เช่น 08:00)',
+            'site_name.required' => 'กรุณาระบุชื่อเว็บไซต์',
+            'site_name.string' => 'ชื่อเว็บไซต์ต้องเป็นข้อความ',
+            'site_name.max' => 'ชื่อเว็บไซต์ต้องไม่เกิน 120 ตัวอักษร',
         ];
     }
 }

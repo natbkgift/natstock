@@ -3,7 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ config('app.name') }} - @yield('title', 'ระบบคลังสินค้า NatStock V 1.0')</title>
+    @php($siteName = config('app.name'))
+    <title>{{ $siteName }} - @yield('title', $siteName)</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
     <style>
@@ -54,7 +55,7 @@
     </nav>
     <aside class="main-sidebar sidebar-dark-primary elevation-4">
         <a href="{{ route('admin.dashboard') }}" class="brand-link text-center">
-            <span class="brand-text font-weight-light">{{ config('app.name') }}</span>
+            <span class="brand-text font-weight-light">{{ $siteName }}</span>
         </a>
         <div class="sidebar">
             <nav class="mt-2">
@@ -89,18 +90,6 @@
                         <a href="{{ route('admin.movements.index') }}" class="nav-link {{ request()->routeIs('admin.movements.*') ? 'active' : '' }}">
                             <i class="nav-icon fas fa-exchange-alt"></i>
                             <p>เคลื่อนไหวสต็อก</p>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('admin.import.index') }}" class="nav-link {{ request()->routeIs('admin.import.*') ? 'active' : '' }}">
-                            <i class="nav-icon fas fa-file-import"></i>
-                            <p>นำเข้าไฟล์</p>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('import_export.index') }}" class="nav-link {{ request()->routeIs('import_export.*') ? 'active' : '' }}">
-                            <i class="nav-icon fas fa-file-export"></i>
-                            <p>นำเข้าส่งออกไฟล์</p>
                         </a>
                     </li>
                     @can('access-admin')
@@ -185,7 +174,7 @@
     </div>
 
     <footer class="main-footer text-sm text-center">
-    <strong>ระบบคลังสินค้า NatStock V 1.0</strong>
+        <strong>{{ $siteName }}</strong>
     </footer>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js"></script>

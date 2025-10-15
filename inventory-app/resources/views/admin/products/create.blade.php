@@ -41,7 +41,7 @@
         });
 
         $('#btn-save-category').on('click', function () {
-            var $input = $('#new_category');
+            var $input = $('#new_category_name');
             var name = $input.val().trim();
             if (!name) {
                 $input.addClass('is-invalid');

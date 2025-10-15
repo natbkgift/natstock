@@ -24,8 +24,7 @@
         'issue' => array_merge($defaultForms['issue'], $prefill['issue'] ?? []),
         'adjust' => array_merge($defaultForms['adjust'], $prefill['adjust'] ?? []),
     ];
-    $typeLabels = ['receive' => 'รับเข้า', 'issue' => 'เบิกออก', 'adjust' => 'ปรับยอด'];
-    $typeClasses = ['receive' => 'success', 'issue' => 'danger', 'adjust' => 'warning'];
+    $activityPresenter = app(\App\Support\ActivityPresenter::class);
 @endphp
 
 @section('content')
@@ -287,50 +286,36 @@
             <table class="table table-striped table-hover">
                 <thead>
                     <tr>
-                        <th>วันที่/เวลา</th>
-                        <th>สินค้า</th>
-                        <th>ล็อต</th>
-                        <th>ประเภท</th>
-                        <th class="text-right">จำนวน</th>
-                        <th>ผู้ปฏิบัติ</th>
-                        <th>หมายเหตุ</th>
+                        <th>รายละเอียด</th>
+                        <th style="width: 30%">ข้อมูลเพิ่มเติม</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($movements as $movement)
                         <tr>
-                            <td>{{ $movement->happened_at?->format('d/m/Y H:i') }}</td>
                             <td>
-                                <strong>[{{ $movement->product->sku ?? '-' }}]</strong>
-                                <div>{{ $movement->product->name ?? '-' }}</div>
-                            </td>
-                            <td>
+                                <div class="font-weight-medium">{{ $activityPresenter->presentMovement($movement) }}</div>
                                 @if($movement->batch)
-                                    <div>{{ $movement->batch->lot_no }}</div>
                                     @if($movement->batch->expire_date)
-                                        <small class="text-muted">หมดอายุ {{ $movement->batch->expire_date->locale('th')->translatedFormat('d M Y') }}</small>
+                                        <small class="text-muted d-block">หมดอายุ {{ $movement->batch->expire_date->locale('th')->translatedFormat('d M Y') }}</small>
                                     @else
-                                        <small class="text-muted">ไม่ระบุวันหมดอายุ</small>
+                                        <small class="text-muted d-block">ไม่ระบุวันหมดอายุ</small>
                                     @endif
                                 @else
-                                    <span class="badge badge-secondary">ไม่มีข้อมูลล็อต (legacy)</span>
+                                    <small class="text-muted d-block">ไม่มีข้อมูลล็อต (legacy)</small>
                                 @endif
                             </td>
                             <td>
-                                <span class="badge badge-{{ $typeClasses[$movement->type] ?? 'secondary' }}">{{ $typeLabels[$movement->type] ?? '-' }}</span>
-                            </td>
-                            <td class="text-right">{{ $movement->formatted_qty }}</td>
-                            <td>{{ $movement->actor->name ?? '-' }}</td>
-                            <td>
-                                {{ $movement->note ?? '-' }}
-                                @if(! $movement->batch)
-                                    <br><small class="text-muted">เชื่อมต่อแบบเดิม (ไม่มีการระบุล็อต)</small>
+                                @if($movement->note)
+                                    <div>{{ $movement->note }}</div>
+                                @else
+                                    <span class="text-muted">-</span>
                                 @endif
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="text-center text-muted">ยังไม่มีบันทึกการเคลื่อนไหว</td>
+                            <td colspan="2" class="text-center text-muted">ยังไม่มีบันทึกการเคลื่อนไหว</td>
                         </tr>
                     @endforelse
                 </tbody>

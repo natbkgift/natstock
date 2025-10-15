@@ -11,6 +11,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class ProductController extends Controller
@@ -26,10 +27,10 @@ class ProductController extends Controller
         if ($name === '') {
             return response()->json(['error' => 'กรุณากรอกชื่อหมวดหมู่'], 422);
         }
-        $category = Category::create([
-            'name' => $name,
-            'is_active' => true,
-        ]);
+        $category = Category::firstOrCreate(
+            ['name' => $name],
+            ['is_active' => true]
+        );
         return response()->json(['id' => $category->id, 'name' => $category->name]);
     }
 
@@ -91,18 +92,12 @@ class ProductController extends Controller
 
         $validated = $request->validated();
         PriceGuard::strip($validated);
-        $data = $this->formatProductData($validated);
+        $product = DB::transaction(function () use ($validated) {
+            $data = $this->formatProductData($validated);
+            $data['category_id'] = $this->resolveCategoryId($validated);
 
-        // If new_category is filled, create category and use its id
-        if (!empty($validated['new_category'])) {
-            $category = Category::create([
-                'name' => $validated['new_category'],
-                'is_active' => true,
-            ]);
-            $data['category_id'] = $category->id;
-        }
-
-        $product = Product::create($data);
+            return Product::create($data);
+        });
 
         $this->auditLogger->log(
             'product.created',
@@ -141,10 +136,14 @@ class ProductController extends Controller
         $this->authorize('update', $product);
         $validated = $request->validated();
         PriceGuard::strip($validated);
-        $data = $this->formatProductData($validated);
         $before = Arr::only($product->toArray(), ['sku', 'name', 'qty', 'reorder_point', 'is_active']);
 
-        $product->update($data);
+        DB::transaction(function () use (&$product, $validated) {
+            $data = $this->formatProductData($validated);
+            $data['category_id'] = $this->resolveCategoryId($validated, $product->category_id);
+
+            $product->update($data);
+        });
 
         $this->auditLogger->log(
             'product.updated',
@@ -197,6 +196,10 @@ class ProductController extends Controller
         $data['qty'] = (int) ($data['qty'] ?? 0);
         $data['reorder_point'] = (int) ($data['reorder_point'] ?? 0);
 
+        if (array_key_exists('category_id', $data) && $data['category_id'] === '') {
+            $data['category_id'] = null;
+        }
+
         // Normalize pricing values
         if (array_key_exists('cost_price', $data)) {
             $data['cost_price'] = (float) ($data['cost_price'] ?? 0);
@@ -206,6 +209,42 @@ class ProductController extends Controller
             $data['sale_price'] = ($sale === null || $sale === '') ? 0 : (float) $sale;
         }
 
+        if (array_key_exists('sku', $data) && trim((string) $data['sku']) === '') {
+            unset($data['sku']);
+        }
+
+        unset($data['new_category_name'], $data['new_category']);
+
         return $data;
+    }
+
+    private function resolveCategoryId(array $data, ?int $current = null): int
+    {
+        $newCategoryName = trim((string) ($data['new_category_name'] ?? ''));
+
+        if ($newCategoryName !== '') {
+            $category = Category::query()->firstOrCreate(
+                ['name' => $newCategoryName],
+                ['is_active' => true]
+            );
+
+            return $category->id;
+        }
+
+        $categoryId = $data['category_id'] ?? $current;
+
+        if ($categoryId === null || $categoryId === '') {
+            return $this->defaultCategory()->id;
+        }
+
+        return (int) $categoryId;
+    }
+
+    private function defaultCategory(): Category
+    {
+        return Category::query()->firstOrCreate(
+            ['name' => 'ไม่ระบุหมวดหมู่'],
+            ['is_active' => true]
+        );
     }
 }
