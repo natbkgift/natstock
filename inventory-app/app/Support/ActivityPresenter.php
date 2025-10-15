@@ -16,7 +16,7 @@ class ActivityPresenter
         $lotText = Str::startsWith(Str::upper($lotValue), 'LOT') ? $lotValue : 'LOT ' . $lotValue;
         $actor = $movement->actor?->name ?: 'ระบบ';
         $happenedAt = $movement->happened_at?->clone()->locale('th')->translatedFormat('d M Y H:i')
-            ?? now()->locale('th')->translatedFormat('d M Y H:i');
+            ?? 'ไม่ระบุเวลา';
 
         return match ($movement->type) {
             'receive' => $this->formatReceive($sku, $name, $lotText, $movement->qty, $happenedAt, $actor),

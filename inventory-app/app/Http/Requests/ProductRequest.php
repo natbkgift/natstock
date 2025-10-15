@@ -17,7 +17,8 @@ class ProductRequest extends FormRequest
     {
         $sku = $this->input('sku');
         if ($sku !== null) {
-            $this->merge(['sku' => trim((string) $sku)]);
+            $sku = trim((string) $sku);
+            $this->merge(['sku' => $sku === '' ? null : $sku]);
         }
 
         $newCategory = $this->input('new_category_name');
@@ -26,7 +27,8 @@ class ProductRequest extends FormRequest
         }
 
         if ($newCategory !== null) {
-            $this->merge(['new_category_name' => trim((string) $newCategory)]);
+            $newCategory = trim((string) $newCategory);
+            $this->merge(['new_category_name' => $newCategory === '' ? null : $newCategory]);
         }
 
         if ($this->has('category_id') && $this->input('category_id') === '') {

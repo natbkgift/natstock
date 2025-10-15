@@ -49,12 +49,6 @@ class AppServiceProvider extends ServiceProvider
             // ignore if settings table not ready yet
         }
 
-        try {
-            app('router')->aliasMiddleware('import.enabled', \App\Http\Middleware\EnsureImportFeatureEnabled::class);
-        } catch (\Throwable $e) {
-            // ignore when router not yet available
-        }
-
         // Use Bootstrap pagination views (avoid Tailwind's large SVG chevrons rendering)
         try { Paginator::useBootstrap(); } catch (\Throwable $e) { /* ignore */ }
     }
