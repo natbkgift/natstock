@@ -108,6 +108,14 @@ class SettingManager
         return $this->getArray('notify_emails');
     }
 
+    public function getSiteName(): string
+    {
+        $fallback = (string) config('app_brand.site_name');
+        $name = trim($this->getString('site_name', $fallback));
+
+        return $name === '' ? $fallback : $name;
+    }
+
     /**
      * @return array<string, string|null>
      */

@@ -11,15 +11,11 @@ use function Pest\Laravel\get;
 
 uses(RefreshDatabase::class);
 
-it('exposes report export shortcuts on the import/export hub', function (): void {
+it('disables the import/export hub while keeping report downloads accessible', function (): void {
     $user = User::factory()->create(['role' => 'admin']);
     actingAs($user);
 
-    $response = get(route('import_export.index'));
-
-    $response->assertOk();
-    $response->assertSee('ดาวน์โหลด expiring-batches.csv');
-    $response->assertSee('ดาวน์โหลด low-stock.csv');
+    get(route('import_export.index'))->assertNotFound();
 
     get(route('admin.reports.expiring-batches', ['export' => 'csv']))
         ->assertOk()

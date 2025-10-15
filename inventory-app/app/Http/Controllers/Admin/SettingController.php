@@ -33,6 +33,7 @@ class SettingController extends Controller
 
         return view('admin.settings.index', [
             'values' => [
+                'site_name' => $this->settings->getSiteName(),
                 'alert_expiring_days' => $this->settings->getString('alert_expiring_days'),
                 'expiring_days' => $this->settings->getExpiringLeadDays(),
                 'notify_low_stock' => $this->settings->getBool('notify_low_stock', true),
@@ -53,6 +54,7 @@ class SettingController extends Controller
 
         $data = $request->validated();
 
+        $this->settings->setString('site_name', $data['site_name']);
         $normalizedDays = preg_replace('/\s+/', '', $data['alert_expiring_days']);
         $this->settings->setString('alert_expiring_days', (string) $normalizedDays);
         $this->settings->setString('expiring_days', (string) $data['expiring_days']);
@@ -75,6 +77,7 @@ class SettingController extends Controller
                 'notify_channels' => $data['notify_channels'],
                 'notify_emails' => $data['notify_emails'] ?? '',
                 'daily_scan_time' => $data['daily_scan_time'],
+                'site_name' => $data['site_name'],
             ],
             null,
             $request->user(),

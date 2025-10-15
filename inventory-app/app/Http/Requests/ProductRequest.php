@@ -13,6 +13,33 @@ class ProductRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $sku = $this->input('sku');
+        if ($sku !== null) {
+            $sku = trim((string) $sku);
+            $this->merge(['sku' => $sku === '' ? null : $sku]);
+        }
+
+        $newCategory = $this->input('new_category_name');
+        if ($newCategory === null) {
+            $newCategory = $this->input('new_category');
+        }
+
+        if ($newCategory !== null) {
+            $newCategory = trim((string) $newCategory);
+            $this->merge(['new_category_name' => $newCategory === '' ? null : $newCategory]);
+        }
+
+        if ($this->has('category_id') && $this->input('category_id') === '') {
+            $this->merge(['category_id' => null]);
+        }
+
+        if (filled($this->input('new_category_name'))) {
+            $this->merge(['category_id' => null]);
+        }
+    }
+
     public function rules(): array
     {
         $productId = $this->route('product');
@@ -31,18 +58,17 @@ class ProductRequest extends FormRequest
             $uniqueSkuRule->ignore($productId);
         }
 
-        $hasNewCategory = !empty($this->input('new_category'));
         $rules = [
             'sku' => [
-                'required',
+                'nullable',
                 'string',
                 'max:64',
                 'regex:/^[A-Za-z0-9._-]+$/',
                 $uniqueSkuRule,
             ],
             'name' => ['required', 'string', 'max:150'],
-            'category_id' => [$hasNewCategory ? 'nullable' : 'required', 'exists:categories,id'],
-            'new_category' => ['nullable', 'string', 'max:100'],
+            'category_id' => ['nullable', 'exists:categories,id'],
+            'new_category_name' => ['nullable', 'string', 'max:120'],
             'expire_date' => ['nullable', 'date_format:Y-m-d'],
             'reorder_point' => ['integer', 'min:0'],
             'qty' => ['integer', 'min:0'],
@@ -69,10 +95,9 @@ class ProductRequest extends FormRequest
             'name.required' => 'กรุณากรอกชื่อสินค้า',
             'name.string' => 'ชื่อสินค้าต้องเป็นข้อความ',
             'name.max' => 'ชื่อสินค้าต้องไม่เกิน 150 ตัวอักษร',
-            'category_id.required' => 'กรุณาเลือกหมวดหมู่สินค้า',
             'category_id.exists' => 'หมวดหมู่สินค้าที่เลือกไม่ถูกต้อง',
-            'new_category.string' => 'ชื่อหมวดหมู่ใหม่ต้องเป็นข้อความ',
-            'new_category.max' => 'ชื่อหมวดหมู่ใหม่ต้องไม่เกิน 100 ตัวอักษร',
+            'new_category_name.string' => 'ชื่อหมวดหมู่ใหม่ต้องเป็นข้อความ',
+            'new_category_name.max' => 'ชื่อหมวดหมู่ใหม่ต้องไม่เกิน 120 ตัวอักษร',
             'cost_price.numeric' => 'ราคาทุนต้องเป็นตัวเลข',
             'cost_price.min' => 'ราคาทุนต้องมากกว่าหรือเท่ากับ 0',
             'sale_price.numeric' => 'ราคาขายต้องเป็นตัวเลข',

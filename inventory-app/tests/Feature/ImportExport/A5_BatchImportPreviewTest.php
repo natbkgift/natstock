@@ -19,59 +19,28 @@ function makePreviewCsvUpload(array $rows): UploadedFile
     return UploadedFile::fake()->createWithContent('preview.csv', $contents);
 }
 
-it('previews first 20 rows and summarises csv data', function (): void {
+it('blocks import preview when the feature is disabled', function (): void {
     $user = User::factory()->create(['role' => 'admin']);
 
-    $header = ['sku', 'qty', 'name', 'category', 'cost_price'];
-    $rows = [$header];
+    $file = makePreviewCsvUpload([
+        ['sku', 'qty'],
+        ['SKU-001', '5'],
+    ]);
 
-    for ($i = 1; $i <= 22; $i++) {
-        $rows[] = [
-            sprintf('SKU-%03d', $i),
-            (string) $i,
-            'สินค้า ' . $i,
-            'หมวดหมู่',
-            '100.00',
-        ];
-    }
-
-    $file = makePreviewCsvUpload($rows);
-
-    $response = $this->actingAs($user)->post(
-        route('import_export.preview'),
-        ['file' => $file],
-        ['Accept' => 'application/json']
-    );
-
-    $response->assertOk();
-    $data = $response->json();
-
-    expect($data['meta']['total_rows'])->toBe(22)
-        ->and($data['meta']['ignored_columns'])->toContain('cost_price')
-        ->and($data['html'])->toContain('ทั้งหมด 22 แถว (พรีวิวสูงสุด 20 แถว)')
-        ->and($data['html'])->toContain('คอลัมน์ราคาไม่ถูกใช้งาน');
+    $this->actingAs($user)
+        ->post(route('import_export.preview'), ['file' => $file], ['Accept' => 'application/json'])
+        ->assertNotFound();
 });
 
-it('highlights invalid values with error messages', function (): void {
+it('returns 404 for invalid payloads when import is disabled', function (): void {
     $user = User::factory()->create(['role' => 'admin']);
 
-    $rows = [
-        ['sku', 'qty', 'expire_date', 'lot_no'],
-        ['SKU-001', '-5', '2024/10/01', '12345678901234567'],
-    ];
+    $file = makePreviewCsvUpload([
+        ['sku', 'qty'],
+        ['SKU-001', '-5'],
+    ]);
 
-    $file = makePreviewCsvUpload($rows);
-
-    $response = $this->actingAs($user)->post(
-        route('import_export.preview'),
-        ['file' => $file],
-        ['Accept' => 'application/json']
-    );
-
-    $response->assertStatus(200);
-    $html = $response->json('html');
-
-    expect($html)->toContain('จำนวนต้องเป็นจำนวนเต็มที่มากกว่าหรือเท่ากับ 0')
-        ->and($html)->toContain('รูปแบบวันหมดอายุต้องเป็น YYYY-MM-DD')
-        ->and($html)->toContain('หมายเลขล็อตต้องมีความยาวไม่เกิน 16 ตัวอักษร');
+    $this->actingAs($user)
+        ->post(route('import_export.preview'), ['file' => $file], ['Accept' => 'application/json'])
+        ->assertNotFound();
 });

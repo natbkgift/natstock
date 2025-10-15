@@ -6,10 +6,7 @@
     <li class="breadcrumb-item active">แดชบอร์ด</li>
 @endsection
 
-@php
-    $typeLabels = ['receive' => 'รับเข้า', 'issue' => 'เบิกออก', 'adjust' => 'ปรับยอด'];
-    $typeClasses = ['receive' => 'success', 'issue' => 'danger', 'adjust' => 'warning'];
-@endphp
+@php($activityPresenter = app(\App\Support\ActivityPresenter::class))
 
 @section('content')
 @if($shouldShowAlerts)
@@ -48,16 +45,36 @@
     <div class="col-lg-4 col-md-12 mb-4">
         <div class="card card-outline card-success h-100">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h3 class="card-title mb-0">มูลค่าสต็อกตามราคาทุนรวม</h3>
+                <h3 class="card-title mb-0">สรุปรายการสินค้า</h3>
+                <a href="{{ route('admin.products.index') }}" class="btn btn-sm btn-outline-secondary">ดูทั้งหมด</a>
             </div>
-            <div class="card-body">
-                @if($pricingEnabled)
-                    <div class="display-4 text-success mb-2">{{ $stockValueFormatted }}</div>
-                    <p class="text-muted mb-0">คิดจากปริมาณคงเหลือ x ราคาทุน</p>
-                @else
-                    <div class="display-4 text-muted mb-2"><i class="fas fa-lock"></i></div>
-                    <p class="text-muted mb-0">ระบบนี้ปิดการใช้งานราคาทุน/ราคาขายแล้ว</p>
-                @endif
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>SKU</th>
+                                <th>ชื่อสินค้า</th>
+                                <th class="text-right">คงเหลือรวม</th>
+                                <th class="text-right">จำนวนล็อต</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($productSummary as $item)
+                                <tr>
+                                    <td>{{ $item['sku'] }}</td>
+                                    <td>{{ $item['name'] }}</td>
+                                    <td class="text-right">{{ number_format($item['qty']) }}</td>
+                                    <td class="text-right">{{ number_format($item['active_batches']) }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">ยังไม่มีข้อมูลสินค้า</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -69,39 +86,27 @@
         <a href="{{ route('admin.movements.index') }}" class="btn btn-sm btn-outline-secondary">ไปหน้ารายการทั้งหมด</a>
     </div>
     <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover mb-0">
-                <thead>
-                    <tr>
-                        <th style="width: 20%">วันที่/เวลา</th>
-                        <th style="width: 35%">สินค้า</th>
-                        <th style="width: 15%">ประเภท</th>
-                        <th style="width: 15%" class="text-right">จำนวน</th>
-                        <th style="width: 15%">ผู้ปฏิบัติ</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($recentMovements as $movement)
-                        <tr>
-                            <td>{{ $movement->happened_at?->format('d/m/Y H:i') }}</td>
-                            <td>
-                                <strong>[{{ $movement->product->sku ?? '-' }}]</strong>
-                                <div>{{ $movement->product->name ?? '-' }}</div>
-                            </td>
-                            <td>
-                                <span class="badge badge-{{ $typeClasses[$movement->type] ?? 'secondary' }}">{{ $typeLabels[$movement->type] ?? '-' }}</span>
-                            </td>
-                            <td class="text-right">{{ $movement->formatted_qty }}</td>
-                            <td>{{ $movement->actor->name ?? '-' }}</td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="5" class="text-center text-muted py-4">ยังไม่มีบันทึกการเคลื่อนไหว</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+        <ul class="list-group list-group-flush">
+            @forelse($recentMovements as $movement)
+                <li class="list-group-item">
+                    <div>{{ $activityPresenter->presentMovement($movement) }}</div>
+                    @if($movement->batch)
+                        @if($movement->batch->expire_date)
+                            <small class="text-muted d-block">หมดอายุ {{ $movement->batch->expire_date->locale('th')->translatedFormat('d M Y') }}</small>
+                        @else
+                            <small class="text-muted d-block">ไม่ระบุวันหมดอายุ</small>
+                        @endif
+                    @else
+                        <small class="text-muted d-block">ไม่มีข้อมูลล็อต (legacy)</small>
+                    @endif
+                    @if($movement->note)
+                        <small class="text-muted d-block">หมายเหตุ: {{ $movement->note }}</small>
+                    @endif
+                </li>
+            @empty
+                <li class="list-group-item text-center text-muted py-4">ยังไม่มีบันทึกการเคลื่อนไหว</li>
+            @endforelse
+        </ul>
     </div>
 </div>
 @endsection
