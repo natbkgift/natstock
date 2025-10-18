@@ -69,13 +69,14 @@ class ProductMovementController extends Controller
         $validated = $request->validate(
             [
                 'qty' => ['required', 'integer', 'min:1'],
-                'lot_no' => ['nullable', 'string'],
+                'lot_no' => ['required', 'string'],
                 'note' => ['nullable', 'string'],
             ],
             [
                 'qty.required' => 'กรุณาระบุจำนวน',
                 'qty.integer' => 'จำนวนต้องเป็นตัวเลขจำนวนเต็ม',
                 'qty.min' => 'จำนวนต้องมากกว่าศูนย์',
+                'lot_no.required' => 'กรุณาเลือกล็อตที่ต้องการเบิก',
                 'lot_no.string' => 'เลือกรายการล็อตไม่ถูกต้อง',
                 'note.string' => 'หมายเหตุต้องเป็นข้อความ',
             ],
@@ -84,7 +85,7 @@ class ProductMovementController extends Controller
         $movement = $this->stockMovementService->issue(
             $product,
             (int) $validated['qty'],
-            $validated['lot_no'] ?? null,
+            $validated['lot_no'],
             $validated['note'] ?? null,
         );
 

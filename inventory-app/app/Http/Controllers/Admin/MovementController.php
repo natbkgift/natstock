@@ -179,6 +179,7 @@ class MovementController extends Controller
                     return [
                         'lot_no' => $batch->lot_no,
                         'expire_date_th' => $this->formatExpireDate($batch),
+                        'expire_date' => $batch->expire_date?->toDateString(),
                         'qty' => (int) $batch->qty,
                     ];
                 })
@@ -201,7 +202,10 @@ class MovementController extends Controller
 
         return Product::query()
             ->whereIn('id', $productIds)
-            ->with(['batches' => fn ($query) => $query->where('is_active', true)->orderBy('lot_no')])
+            ->with(['batches' => fn ($query) => $query->where('is_active', true)
+                ->orderByRaw('CASE WHEN expire_date IS NULL THEN 1 ELSE 0 END')
+                ->orderBy('expire_date')
+                ->orderBy('lot_no')])
             ->orderBy('sku')
             ->get()
             ->map(function (Product $product) {

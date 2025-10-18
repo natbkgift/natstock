@@ -48,11 +48,23 @@
 </div>
 <div class="form-row">
     <div class="form-group col-md-4">
-        <label for="expire_date">วันหมดอายุ</label>
+        <label for="expire_in_days">หมดอายุใน (วัน)</label>
+        <input type="number" min="1" name="expire_in_days" id="expire_in_days" class="form-control @error('expire_in_days') is-invalid @enderror" value="{{ old('expire_in_days') }}" placeholder="เช่น 15">
+        @error('expire_in_days')
+            <div class="invalid-feedback">{{ $message }}</div>
+        @enderror
+    </div>
+    <div class="form-group col-md-4">
+        <label for="expire_date">วันที่หมดอายุ</label>
         <input type="date" name="expire_date" id="expire_date" class="form-control @error('expire_date') is-invalid @enderror" value="{{ old('expire_date', optional(optional($product)->expire_date)->format('Y-m-d')) }}">
         @error('expire_date')
             <div class="invalid-feedback">{{ $message }}</div>
         @enderror
+    </div>
+    <div class="form-group col-md-4 d-flex align-items-end">
+        <div class="text-muted small">
+            ระบุอย่างใดอย่างหนึ่ง: “หมดอายุใน (วัน)” หรือ “วันที่หมดอายุ” หากกรอกทั้งสอง ระบบจะใช้วันที่หมดอายุเป็นหลัก
+        </div>
     </div>
 </div>
 <div class="form-row">
@@ -63,13 +75,21 @@
             <div class="invalid-feedback">{{ $message }}</div>
         @enderror
     </div>
-    <div class="form-group col-md-4">
-        <label for="qty">ปริมาณคงเหลือ</label>
-        <input type="number" min="0" name="qty" id="qty" class="form-control @error('qty') is-invalid @enderror" value="{{ old('qty', optional($product)->qty ?? 0) }}">
-        @error('qty')
-            <div class="invalid-feedback">{{ $message }}</div>
-        @enderror
-    </div>
+    @if($product === null)
+        <div class="form-group col-md-4">
+            <label for="initial_qty">จำนวนเริ่มต้น</label>
+            <input type="number" min="0" name="initial_qty" id="initial_qty" class="form-control @error('initial_qty') is-invalid @enderror" value="{{ old('initial_qty', 0) }}">
+            @error('initial_qty')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
+    @else
+        <div class="form-group col-md-4">
+            <label for="qty">ปริมาณคงเหลือ</label>
+            <input type="text" id="qty" class="form-control" value="{{ number_format($product->qty ?? 0) }}" readonly>
+            <small class="form-text text-muted">ปรับปรุงยอดผ่านหน้าเคลื่อนไหวสต็อกเท่านั้น</small>
+        </div>
+    @endif
 </div>
 <div class="form-row">
     @if(config('inventory.enable_price'))

@@ -3,6 +3,7 @@
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use function Pest\Laravel\actingAs;
@@ -52,7 +53,8 @@ it('strips pricing payloads when the feature flag is disabled', function (): voi
         'sku' => 'SKU-FLAG-01',
         'name' => 'สินค้าทดสอบ',
         'category_id' => $category->getKey(),
-        'qty' => 5,
+        'initial_qty' => 5,
+        'expire_in_days' => 30,
         'reorder_point' => 2,
         'is_active' => 1,
         'cost_price' => 123.45,
@@ -71,6 +73,7 @@ it('strips pricing payloads when the feature flag is disabled', function (): voi
         'category_id' => $category->getKey(),
         'qty' => 7,
         'reorder_point' => 3,
+        'expire_date' => Carbon::now()->addDays(45)->toDateString(),
         'is_active' => 1,
         'cost_price' => 555.55,
         'sale_price' => 777.77,
@@ -146,7 +149,8 @@ it('shows pricing UI and keeps values when the feature flag is enabled', functio
         'sku' => 'SKU-ENABLE-01',
         'name' => 'สินค้าเปิดราคา',
         'category_id' => $category->getKey(),
-        'qty' => 4,
+        'initial_qty' => 4,
+        'expire_in_days' => 20,
         'reorder_point' => 1,
         'is_active' => 1,
         'cost_price' => 88.25,

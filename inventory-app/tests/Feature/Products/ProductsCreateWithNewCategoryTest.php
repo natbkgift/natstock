@@ -15,7 +15,8 @@ it('can create product with new category from form', function () {
     $payload = [
         'sku' => 'SKU-NEWCAT-01',
         'name' => 'สินค้าทดสอบหมวดใหม่',
-        'qty' => 10,
+        'initial_qty' => 10,
+        'expire_in_days' => 45,
         'reorder_point' => 2,
         'is_active' => 1,
         'category_id' => '',

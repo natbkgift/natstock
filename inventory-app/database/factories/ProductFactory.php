@@ -12,6 +12,22 @@ class ProductFactory extends Factory
 
     private static int $sequence = 1;
 
+    public function configure()
+    {
+        return $this->afterCreating(function (Product $product): void {
+            $lotService = app(\App\Services\LotService::class);
+            $lotNo = $lotService->nextFor($product);
+
+            $product->batches()->create([
+                'lot_no' => $lotNo,
+                'qty' => (int) $product->qty,
+                'expire_date' => $product->expire_date,
+                'received_at' => now(),
+                'is_active' => true,
+            ]);
+        });
+    }
+
     public function definition(): array
     {
         $names = [

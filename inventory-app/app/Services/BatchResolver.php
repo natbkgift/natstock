@@ -72,6 +72,12 @@ class BatchResolver
                 ]);
             }
 
+            if ($batch->qty <= 0) {
+                throw ValidationException::withMessages([
+                    'lot_no' => 'ล็อตนี้ไม่มีคงเหลือให้เบิก',
+                ]);
+            }
+
             return $batch;
         }
 

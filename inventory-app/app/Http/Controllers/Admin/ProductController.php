@@ -5,8 +5,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ProductRequest;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\StockMovement;
 use App\Services\AuditLogger;
+use App\Services\LotService;
 use App\Support\PriceGuard;
+use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,8 +19,10 @@ use Illuminate\View\View;
 
 class ProductController extends Controller
 {
-    public function __construct(private readonly AuditLogger $auditLogger)
-    {
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly LotService $lotService,
+    ) {
     }
 
     public function ajaxCreateCategory(Request $request)
@@ -92,11 +97,17 @@ class ProductController extends Controller
 
         $validated = $request->validated();
         PriceGuard::strip($validated);
-        $product = DB::transaction(function () use ($validated) {
-            $data = $this->formatProductData($validated);
-            $data['category_id'] = $this->resolveCategoryId($validated);
 
-            return Product::create($data);
+        $categoryId = $this->resolveCategoryId($validated);
+        [$data, $initialQty, $expireDate] = $this->prepareProductData($validated, true);
+        $data['category_id'] = $categoryId;
+
+        $product = DB::transaction(function () use ($data, $initialQty, $expireDate, $request) {
+            $product = Product::create($data);
+
+            $this->initializeFirstLot($product, $initialQty, $expireDate, $request->user()?->id);
+
+            return $product->fresh();
         });
 
         $this->auditLogger->log(
@@ -139,8 +150,9 @@ class ProductController extends Controller
         $before = Arr::only($product->toArray(), ['sku', 'name', 'qty', 'reorder_point', 'is_active']);
 
         DB::transaction(function () use (&$product, $validated) {
-            $data = $this->formatProductData($validated);
-            $data['category_id'] = $this->resolveCategoryId($validated, $product->category_id);
+            $categoryId = $this->resolveCategoryId($validated, $product->category_id);
+            [$data] = $this->prepareProductData($validated);
+            $data['category_id'] = $categoryId;
 
             $product->update($data);
         });
@@ -187,13 +199,35 @@ class ProductController extends Controller
             ->with('status', 'ลบข้อมูลเรียบร้อย');
     }
 
-    private function formatProductData(array $data): array
+    private function prepareProductData(array $data, bool $isCreate = false): array
+    {
+        $payload = $data;
+
+        $expireDate = $this->resolveExpireDate($payload);
+
+        $initialQty = 0;
+        if ($isCreate) {
+            $initialQty = (int) ($payload['initial_qty'] ?? 0);
+        }
+
+        unset($payload['initial_qty']);
+
+        $formatted = $this->formatProductData($payload, $isCreate ? $initialQty : null);
+
+        return [$formatted, $initialQty, $expireDate];
+    }
+
+    private function formatProductData(array $data, ?int $initialQty = null): array
     {
         $data['is_active'] = (bool) ($data['is_active'] ?? false);
         $data['expire_date'] = isset($data['expire_date']) && $data['expire_date'] !== ''
             ? $data['expire_date']
             : null;
-        $data['qty'] = (int) ($data['qty'] ?? 0);
+        if ($initialQty !== null) {
+            $data['qty'] = $initialQty;
+        } elseif (array_key_exists('qty', $data)) {
+            $data['qty'] = (int) ($data['qty'] ?? 0);
+        }
         $data['reorder_point'] = (int) ($data['reorder_point'] ?? 0);
 
         if (array_key_exists('category_id', $data) && $data['category_id'] === '') {
@@ -216,6 +250,58 @@ class ProductController extends Controller
         unset($data['new_category_name'], $data['new_category']);
 
         return $data;
+    }
+
+    private function resolveExpireDate(array &$data): ?Carbon
+    {
+        $dateString = $data['expire_date'] ?? null;
+        $expireInDays = $data['expire_in_days'] ?? null;
+
+        unset($data['expire_in_days']);
+
+        if ($dateString !== null && $dateString !== '') {
+            $date = Carbon::createFromFormat('Y-m-d', $dateString)->startOfDay();
+            $data['expire_date'] = $date->toDateString();
+
+            return $date;
+        }
+
+        if ($expireInDays !== null) {
+            $days = (int) $expireInDays;
+            $date = Carbon::today()->addDays($days)->startOfDay();
+            $data['expire_date'] = $date->toDateString();
+
+            return $date;
+        }
+
+        $data['expire_date'] = null;
+
+        return null;
+    }
+
+    private function initializeFirstLot(Product $product, int $initialQty, ?Carbon $expireDate, ?int $actorId): void
+    {
+        $lotNo = $this->lotService->nextFor($product);
+
+        $batch = $product->batches()->create([
+            'lot_no' => $lotNo,
+            'qty' => $initialQty,
+            'expire_date' => $expireDate,
+            'received_at' => now(),
+            'is_active' => true,
+        ]);
+
+        if ($initialQty > 0) {
+            StockMovement::create([
+                'product_id' => $product->id,
+                'batch_id' => $batch->id,
+                'type' => 'receive',
+                'qty' => $initialQty,
+                'note' => null,
+                'actor_id' => $actorId,
+                'happened_at' => now(),
+            ]);
+        }
     }
 
     private function resolveCategoryId(array $data, ?int $current = null): int

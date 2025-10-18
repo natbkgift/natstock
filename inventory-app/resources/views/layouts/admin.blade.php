@@ -73,6 +73,14 @@
                                 <p>การแจ้งเตือน</p>
                             </a>
                         </li>
+                        @if(config('inventory.import_enabled'))
+                            <li class="nav-item">
+                                <a href="{{ route('import_export.index') }}" class="nav-link {{ request()->routeIs('import_export.*') ? 'active' : '' }}">
+                                    <i class="nav-icon fas fa-file-import"></i>
+                                    <p>นำเข้าส่งออกไฟล์</p>
+                                </a>
+                            </li>
+                        @endif
                     @endcan
                     <li class="nav-item">
                         <a href="{{ route('admin.products.index') }}" class="nav-link {{ request()->routeIs('admin.products.*') ? 'active' : '' }}">
@@ -174,7 +182,7 @@
     </div>
 
     <footer class="main-footer text-sm text-center">
-        <strong>{{ $siteName }}</strong>
+        © {{ date('Y') }} <a href="#" class="text-decoration-none">Nat Stock V 1.5</a>. สงวนลิขสิทธิ์
     </footer>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js"></script>

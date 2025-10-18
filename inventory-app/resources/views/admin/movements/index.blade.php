@@ -112,13 +112,14 @@
                             @endif
                         </div>
                         <div class="form-group col-md-4">
-                            <label for="lot_issue">ล็อต (เลือกได้หรือปล่อยว่างเพื่อให้ระบบเลือกอัตโนมัติ)</label>
-                            <select name="lot_no" id="lot_issue" class="form-control select2-batch @if($activeTab === 'issue' && $errors->has('lot_no')) is-invalid @endif" data-mode="issue" data-product-input="#product_issue" data-selected="{{ $issueLot }}">
-                                <option value="">ให้ระบบเลือกอัตโนมัติ</option>
+                            <label for="lot_issue">ล็อตที่ต้องการเบิก <span class="text-danger">*</span></label>
+                            <select name="lot_no" id="lot_issue" class="form-control select2-batch @if($activeTab === 'issue' && $errors->has('lot_no')) is-invalid @endif" data-mode="issue" data-product-input="#product_issue" data-selected="{{ $issueLot }}" data-empty-target="#issue-lot-empty" required>
+                                <option value="">-- เลือกล็อต --</option>
                             </select>
                             @if($activeTab === 'issue' && $errors->has('lot_no'))
                                 <div class="invalid-feedback d-block">{{ $errors->first('lot_no') }}</div>
                             @endif
+                            <div class="alert alert-warning mt-2 d-none" id="issue-lot-empty">ไม่มีล็อตที่พร้อมให้เบิก</div>
                         </div>
                         <div class="form-group col-md-2">
                             <label for="qty_issue">จำนวน</label>
@@ -143,7 +144,7 @@
                         @endcan
                     </div>
                     <div class="text-right">
-                        <button type="submit" class="btn btn-danger">บันทึกการเบิกออก</button>
+                        <button type="submit" class="btn btn-danger" id="btn-issue-submit">บันทึกการเบิกออก</button>
                     </div>
                 </form>
             </div>
@@ -365,9 +366,14 @@
             return `${product.text ?? ''} (คงเหลือ ${qty ?? '-'})`;
         }
 
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
         function formatBatchLabel(batch) {
             const expireText = batch.expire_date_th ? `หมดอายุ ${batch.expire_date_th}` : 'ไม่ระบุวันหมดอายุ';
-            return `${batch.lot_no} — คงเหลือ ${new Intl.NumberFormat('th-TH').format(batch.qty ?? 0)} — ${expireText}`;
+            const expireDate = batch.expire_date ? new Date(batch.expire_date) : null;
+            const status = expireDate && expireDate < today ? 'หมดอายุแล้ว' : 'พร้อมใช้งาน';
+            return `${batch.lot_no} — คงเหลือ ${new Intl.NumberFormat('th-TH').format(batch.qty ?? 0)} — ${expireText} (${status})`;
         }
 
         function filterBatchesByMode(batches, mode) {
@@ -378,11 +384,56 @@
             return batches || [];
         }
 
+        function sortBatchesFefo(a, b) {
+            const aDate = a.expire_date ? new Date(a.expire_date) : null;
+            const bDate = b.expire_date ? new Date(b.expire_date) : null;
+
+            if (aDate && bDate) {
+                if (aDate.getTime() === bDate.getTime()) {
+                    return (a.lot_no || '').localeCompare(b.lot_no || '', 'th');
+                }
+
+                return aDate - bDate;
+            }
+
+            if (aDate && !bDate) {
+                return -1;
+            }
+
+            if (!aDate && bDate) {
+                return 1;
+            }
+
+            return (a.lot_no || '').localeCompare(b.lot_no || '', 'th');
+        }
+
+        function toggleIssueAvailability(hasAvailable, $select) {
+            const emptyTarget = String($select.data('empty-target') || '');
+            const $alert = emptyTarget ? $(emptyTarget) : null;
+            const $submit = $('#btn-issue-submit');
+
+            if (!hasAvailable) {
+                if ($alert && $alert.length) {
+                    $alert.removeClass('d-none');
+                }
+                $select.prop('disabled', true);
+                $submit.prop('disabled', true);
+            } else {
+                if ($alert && $alert.length) {
+                    $alert.addClass('d-none');
+                }
+                $select.prop('disabled', false);
+                $submit.prop('disabled', false);
+            }
+        }
+
         function renderBatchOptions($select, batches, selectedValue, mode) {
             const targetBatches = filterBatchesByMode(batches, mode);
             const fallbackValue = String($select.data('selected') ?? '');
             const currentValue = selectedValue ?? fallbackValue;
             const allowBlank = mode !== 'adjust';
+
+            targetBatches.sort(sortBatchesFefo);
 
             $select.empty();
 
@@ -392,8 +443,6 @@
             }
 
             targetBatches
-                .slice()
-                .sort((a, b) => (a.lot_no || '').localeCompare(b.lot_no || '', 'th'))
                 .forEach(batch => {
                     const option = new Option(formatBatchLabel(batch), batch.lot_no, false, currentValue === batch.lot_no);
                     if (batch.expire_date_th) {
@@ -403,7 +452,21 @@
                     $select.append(option);
                 });
 
-            $select.data('selected', currentValue || '');
+            let nextSelected = currentValue;
+
+            if (mode === 'issue') {
+                const hasAvailable = targetBatches.length > 0;
+                toggleIssueAvailability(hasAvailable, $select);
+
+                if (hasAvailable) {
+                    nextSelected = currentValue && targetBatches.some(batch => batch.lot_no === currentValue)
+                        ? currentValue
+                        : targetBatches[0].lot_no;
+                    $select.val(nextSelected);
+                }
+            }
+
+            $select.data('selected', nextSelected || '');
             $select.trigger('change.select2');
         }
 
@@ -413,6 +476,14 @@
 
             if (!productId) {
                 renderBatchOptions($select, [], defaultValue, mode);
+                if (mode === 'issue') {
+                    const emptyTarget = String($select.data('empty-target') || '');
+                    if (emptyTarget) {
+                        $(emptyTarget).addClass('d-none');
+                    }
+                    $select.prop('disabled', true);
+                    $('#btn-issue-submit').prop('disabled', true);
+                }
                 return;
             }
 
