@@ -86,10 +86,8 @@
     @else
         <div class="form-group col-md-4">
             <label for="qty">ปริมาณคงเหลือ</label>
-            <input type="number" min="0" name="qty" id="qty" class="form-control @error('qty') is-invalid @enderror" value="{{ old('qty', $product->qty ?? 0) }}">
-            @error('qty')
-                <div class="invalid-feedback">{{ $message }}</div>
-            @enderror
+            <input type="text" id="qty" class="form-control" value="{{ number_format($product->qty ?? 0) }}" readonly>
+            <small class="form-text text-muted">ปรับปรุงยอดผ่านหน้าเคลื่อนไหวสต็อกเท่านั้น</small>
         </div>
     @endif
 </div>

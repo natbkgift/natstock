@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\ProductBatch;
 use App\Models\StockMovement;
 use App\Models\User;
+use App\Services\LotService;
 use App\Support\PriceGuard;
 use Carbon\Carbon;
 use DateTimeImmutable;
@@ -291,12 +292,15 @@ class ImportService
             ];
         }
 
+        /** @var LotService $lotService */
+        $lotService = app(LotService::class);
+
         if ($validRows !== []) {
             foreach (array_chunk($validRows, self::CHUNK_SIZE) as $chunk) {
-                DB::transaction(function () use (&$summary, &$errorRows, $chunk, $duplicateMode, $autoCreateCategory, $actor): void {
+                DB::transaction(function () use (&$summary, &$errorRows, $chunk, $duplicateMode, $autoCreateCategory, $actor, $lotService): void {
                     foreach ($chunk as $rowData) {
                         try {
-                            $result = $this->upsertOrSkip($rowData['normalized'], $duplicateMode, $autoCreateCategory, $actor);
+                            $result = $this->upsertOrSkip($rowData['normalized'], $duplicateMode, $autoCreateCategory, $actor, $lotService);
                             $summary[$result]++;
                         } catch (RuntimeException $exception) {
                             $summary['errors']++;
@@ -422,7 +426,7 @@ class ImportService
         ];
     }
 
-    private function upsertOrSkip(array $row, string $mode, bool $autoCreateCategory, ?User $actor): string
+    private function upsertOrSkip(array $row, string $mode, bool $autoCreateCategory, ?User $actor, LotService $lotService): string
     {
         $category = Category::query()->firstWhere('name', $row['category_name']);
 
@@ -439,6 +443,11 @@ class ImportService
         $product = Product::query()->where('sku', $row['sku'])->first();
 
         if ($product === null) {
+            $expireDateValue = $row['expire_date'];
+            $expireDateString = $expireDateValue instanceof Carbon
+                ? $expireDateValue->toDateString()
+                : ($expireDateValue ?: null);
+
             $productData = [
                 'sku' => $row['sku'],
                 'name' => $row['name'],
@@ -446,7 +455,7 @@ class ImportService
                 'category_id' => $category->getKey(),
                 'cost_price' => $row['cost_price'] ?? null,
                 'sale_price' => $row['sale_price'] ?? null,
-                'expire_date' => $row['expire_date'],
+                'expire_date' => $expireDateString,
                 'reorder_point' => $row['reorder_point'],
                 'qty' => $row['qty'],
                 'is_active' => $row['is_active'],
@@ -455,7 +464,12 @@ class ImportService
 
             $product = Product::create($productData);
 
-            $this->createMovement($product, 'receive', $row['qty'], 'import:create', $actor);
+            $expireCarbon = $this->resolveImportExpireDate($expireDateValue, $expireDateString);
+            $batch = $this->initializeImportedProductLot($product, (int) $row['qty'], $expireCarbon, $lotService);
+
+            if ($batch !== null) {
+                $this->createMovement($product, 'receive', $row['qty'], 'import:create', $actor, $batch);
+            }
 
             return 'created';
         }
@@ -499,16 +513,51 @@ class ImportService
         return 'ปรับยอดจากนำเข้าไฟล์ (Δ' . $formatted . ')';
     }
 
-    private function createMovement(Product $product, string $type, int $qty, string $note, ?User $actor = null): void
+    private function createMovement(Product $product, string $type, int $qty, string $note, ?User $actor = null, ?ProductBatch $batch = null): void
     {
+        if ($qty <= 0) {
+            return;
+        }
+
         StockMovement::create([
             'product_id' => $product->getKey(),
+            'batch_id' => $batch?->getKey(),
             'type' => $type,
             'qty' => $qty,
             'note' => $note,
             'actor_id' => $actor?->getKey(),
             'happened_at' => now(),
         ]);
+    }
+
+    private function initializeImportedProductLot(Product $product, int $qty, ?Carbon $expireDate, LotService $lotService): ?ProductBatch
+    {
+        $lotNo = $lotService->nextFor($product);
+
+        return $product->batches()->create([
+            'lot_no' => $lotNo,
+            'qty' => $qty,
+            'expire_date' => $expireDate,
+            'received_at' => now(),
+            'is_active' => true,
+        ]);
+    }
+
+    private function resolveImportExpireDate(mixed $value, ?string $fallback): ?Carbon
+    {
+        if ($value instanceof Carbon) {
+            return $value->copy()->startOfDay();
+        }
+
+        if (is_string($value) && $value !== '') {
+            return Carbon::createFromFormat('Y-m-d', $value)->startOfDay();
+        }
+
+        if ($fallback !== null) {
+            return Carbon::createFromFormat('Y-m-d', $fallback)->startOfDay();
+        }
+
+        return null;
     }
 
     /**

@@ -19,8 +19,10 @@ use Illuminate\View\View;
 
 class ProductController extends Controller
 {
-    public function __construct(private readonly AuditLogger $auditLogger)
-    {
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly LotService $lotService,
+    ) {
     }
 
     public function ajaxCreateCategory(Request $request)
@@ -221,9 +223,11 @@ class ProductController extends Controller
         $data['expire_date'] = isset($data['expire_date']) && $data['expire_date'] !== ''
             ? $data['expire_date']
             : null;
-        $data['qty'] = $initialQty !== null
-            ? $initialQty
-            : (int) ($data['qty'] ?? 0);
+        if ($initialQty !== null) {
+            $data['qty'] = $initialQty;
+        } elseif (array_key_exists('qty', $data)) {
+            $data['qty'] = (int) ($data['qty'] ?? 0);
+        }
         $data['reorder_point'] = (int) ($data['reorder_point'] ?? 0);
 
         if (array_key_exists('category_id', $data) && $data['category_id'] === '') {
@@ -277,8 +281,7 @@ class ProductController extends Controller
 
     private function initializeFirstLot(Product $product, int $initialQty, ?Carbon $expireDate, ?int $actorId): void
     {
-        $lotService = app(LotService::class);
-        $lotNo = $lotService->nextFor($product);
+        $lotNo = $this->lotService->nextFor($product);
 
         $batch = $product->batches()->create([
             'lot_no' => $lotNo,
@@ -288,15 +291,17 @@ class ProductController extends Controller
             'is_active' => true,
         ]);
 
-        StockMovement::create([
-            'product_id' => $product->id,
-            'batch_id' => $batch->id,
-            'type' => 'receive',
-            'qty' => $initialQty,
-            'note' => null,
-            'actor_id' => $actorId,
-            'happened_at' => now(),
-        ]);
+        if ($initialQty > 0) {
+            StockMovement::create([
+                'product_id' => $product->id,
+                'batch_id' => $batch->id,
+                'type' => 'receive',
+                'qty' => $initialQty,
+                'note' => null,
+                'actor_id' => $actorId,
+                'happened_at' => now(),
+            ]);
+        }
     }
 
     private function resolveCategoryId(array $data, ?int $current = null): int

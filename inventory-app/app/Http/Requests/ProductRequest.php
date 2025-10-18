@@ -133,11 +133,13 @@ class ProductRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator): void {
-            $expireDate = $this->input('expire_date');
-            $expireInDays = $this->input('expire_in_days');
+            if ($this->isMethod('post')) {
+                $expireDate = $this->input('expire_date');
+                $expireInDays = $this->input('expire_in_days');
 
-            if (blank($expireDate) && blank($expireInDays)) {
-                $validator->errors()->add('expire_date', 'กรุณาระบุวันหมดอายุหรือจำนวนวันหมดอายุ');
+                if (blank($expireDate) && blank($expireInDays)) {
+                    $validator->errors()->add('expire_date', 'กรุณาระบุวันหมดอายุหรือจำนวนวันหมดอายุ');
+                }
             }
         });
     }
