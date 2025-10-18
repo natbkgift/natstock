@@ -15,8 +15,9 @@ it('auto assigns sku when none provided', function () {
     $payload = [
         'sku' => '',
         'name' => 'สินค้าไม่ระบุรหัส',
-        'qty' => 5,
+        'initial_qty' => 5,
         'reorder_point' => 1,
+        'expire_in_days' => 30,
         'is_active' => 1,
         'category_id' => '',
         'new_category_name' => '',

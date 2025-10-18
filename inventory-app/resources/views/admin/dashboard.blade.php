@@ -9,9 +9,7 @@
 @php($activityPresenter = app(\App\Support\ActivityPresenter::class))
 
 @section('content')
-@if($shouldShowAlerts)
-    @include('dashboard._alerts')
-@endif
+@include('dashboard._alerts', ['alerts' => $alerts ?? []])
 <div class="row">
     <div class="col-lg-4 col-md-6 mb-4">
         <div class="card card-outline card-warning h-100">

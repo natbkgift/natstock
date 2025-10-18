@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\StockMovement;
-use App\Models\UserAlertState;
 use App\Services\AlertSnapshotService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -24,7 +23,6 @@ class DashboardController extends Controller
         Gate::authorize('access-viewer');
 
         $snapshot = $this->alerts->buildSnapshot();
-        $user = $request->user();
 
         $lowStockSnapshot = $snapshot['low_stock'];
         $expiringSnapshot = $snapshot['expiring'];
@@ -40,17 +38,23 @@ class DashboardController extends Controller
 
         $productSummary = $this->loadProductSummary();
 
-        $alertStates = $this->resolveAlertStates($user?->id, $snapshot);
-        $shouldShowModal = $alertStates['low_stock']['show'] || $alertStates['expiring']['show'];
-
         return view('admin.dashboard', [
             'expiringDays' => $expiringSnapshot['days'],
             'expiringCount' => $expiringCount,
             'lowStockCount' => $lowStockCount,
             'recentMovements' => $recentMovements,
             'productSummary' => $productSummary,
-            'alertStates' => $alertStates,
-            'shouldShowAlerts' => $shouldShowModal,
+            'alerts' => [
+                'low_stock' => [
+                    'count' => $lowStockSnapshot['count'],
+                    'items' => array_slice($lowStockSnapshot['items'], 0, 10),
+                ],
+                'expiring' => [
+                    'count' => $expiringSnapshot['count'],
+                    'items' => array_slice($expiringSnapshot['items'], 0, 10),
+                    'days' => $expiringSnapshot['days'],
+                ],
+            ],
         ]);
     }
 
@@ -80,51 +84,5 @@ class DashboardController extends Controller
                     'active_batches' => (int) ($product->active_batches_count ?? 0),
                 ];
             });
-    }
-
-    /**
-     * @return array<string, array<string, mixed>>
-     */
-    private function resolveAlertStates(?int $userId, array $snapshot): array
-    {
-        $result = [
-            'low_stock' => [
-                'show' => false,
-                'count' => $snapshot['low_stock']['count'],
-                'items' => array_slice($snapshot['low_stock']['items'], 0, 10),
-                'payload_hash' => $snapshot['low_stock']['payload_hash'],
-            ],
-            'expiring' => [
-                'show' => false,
-                'count' => $snapshot['expiring']['count'],
-                'items' => array_slice($snapshot['expiring']['items'], 0, 10),
-                'payload_hash' => $snapshot['expiring']['payload_hash'],
-                'days' => $snapshot['expiring']['days'],
-            ],
-        ];
-
-        if ($userId === null) {
-            return $result;
-        }
-
-        foreach (['low_stock', 'expiring'] as $type) {
-            $payloadHash = $result[$type]['payload_hash'];
-
-            if (! $snapshot[$type]['enabled'] || $result[$type]['count'] <= 0 || ! $payloadHash) {
-                continue;
-            }
-
-            $state = UserAlertState::query()
-                ->where('user_id', $userId)
-                ->where('alert_type', $type)
-                ->where('payload_hash', $payloadHash)
-                ->first();
-
-            if ($state === null || (! $state->isRead() && ! $state->isSnoozed())) {
-                $result[$type]['show'] = true;
-            }
-        }
-
-        return $result;
     }
 }

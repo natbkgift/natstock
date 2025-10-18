@@ -22,6 +22,8 @@ class ProductBatchController extends Controller
 
         $batches = $product->batches()
             ->where('is_active', true)
+            ->orderByRaw('CASE WHEN expire_date IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('expire_date')
             ->orderBy('lot_no')
             ->get()
             ->map(function (ProductBatch $batch) {

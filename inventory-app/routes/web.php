@@ -87,14 +87,6 @@ Route::middleware(['web','auth'])->prefix('admin')->name('admin.')->group(functi
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('notifications/mark-all', [NotificationController::class, 'markAll'])->name('notifications.mark-all');
     Route::post('notifications/{id}/mark-as-read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-as-read');
-    // Alerts actions (JSON) — disable CSRF but keep session/cookies
-    Route::post('alerts/mark-read', [\App\Http\Controllers\Admin\AlertController::class, 'markRead'])
-        ->name('alerts.mark-read')
-        ->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
-    Route::post('alerts/snooze', [\App\Http\Controllers\Admin\AlertController::class, 'snooze'])
-        ->name('alerts.snooze')
-        ->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
-
     // Pricing routes already defined above; avoid duplicates
 
     // User Management (Admin only)
@@ -126,7 +118,7 @@ Route::middleware(['web','auth'])->prefix('admin')->name('admin.')->group(functi
     Route::get('product-batches/expiring', [\App\Http\Controllers\Admin\ProductBatchController::class, 'expiring'])->name('product-batches.expiring');
 });
 
-Route::middleware(['web', 'auth', 'import.enabled'])->group(function () {
+Route::middleware(['web', 'auth', 'import.enabled', 'can:access-staff'])->group(function () {
     Route::get('/admin/import-export', [ImportExportController::class, 'index'])->name('import_export.index');
     Route::post('/admin/import-export/preview', [ImportExportController::class, 'preview'])->name('import_export.preview');
     Route::post('/admin/import-export/process', [ImportExportController::class, 'process'])->name('import_export.process');

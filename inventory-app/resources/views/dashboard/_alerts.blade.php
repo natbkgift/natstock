@@ -1,123 +1,96 @@
 @php
-    $lowStock = $alertStates['low_stock'];
-    $expiring = $alertStates['expiring'];
+    use Carbon\Carbon;
+
+    $lowStock = $alerts['low_stock'] ?? ['count' => 0, 'items' => []];
+    $expiring = $alerts['expiring'] ?? ['count' => 0, 'items' => [], 'days' => 0];
+    $today = Carbon::today();
+    $hasAlerts = ($lowStock['count'] ?? 0) > 0 || ($expiring['count'] ?? 0) > 0;
 @endphp
 
-<div class="modal fade" id="dashboardAlertModal" tabindex="-1" role="dialog" aria-labelledby="dashboardAlertTitle" aria-hidden="true" data-backdrop="static" data-keyboard="false">
-    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="dashboardAlertTitle">แจ้งเตือนสถานะคลังสินค้า</h5>
-            </div>
-            <div class="modal-body p-0">
-                <ul class="nav nav-tabs" role="tablist">
-                    <li class="nav-item">
-                        <a class="nav-link active" id="low-stock-tab" data-toggle="tab" href="#low-stock-pane" role="tab" aria-controls="low-stock-pane" aria-selected="true">
-                            สต็อกต่ำ ({{ number_format($lowStock['count']) }})
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" id="expiring-tab" data-toggle="tab" href="#expiring-pane" role="tab" aria-controls="expiring-pane" aria-selected="false">
-                            ใกล้หมดอายุ ({{ number_format($expiring['count']) }})
-                        </a>
-                    </li>
-                </ul>
-                <div class="tab-content p-3">
-                    <div class="tab-pane fade show active" id="low-stock-pane" role="tabpanel" aria-labelledby="low-stock-tab" data-alert-type="low_stock" data-payload-hash="{{ $lowStock['payload_hash'] }}">
-                        @if(!empty($lowStock['items']))
-                            <ul class="list-group list-group-flush">
-                                @foreach($lowStock['items'] as $item)
-                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <strong>{{ $item['sku'] }}</strong>
-                                            <div class="small text-muted">{{ $item['name'] }}</div>
-                                        </div>
-                                        <span class="badge badge-danger badge-pill">{{ $item['qty_total'] ?? $item['qty'] ?? 0 }} / {{ $item['reorder_point'] }}</span>
-                                    </li>
-                                @endforeach
-                            </ul>
-                        @else
-                            <div class="text-center text-muted py-4">ไม่มีสินค้าที่สต็อกต่ำในขณะนี้</div>
-                        @endif
-                        <div class="mt-3 text-right">
-                            <a href="{{ route('admin.reports.low-stock') }}" class="btn btn-link">ดูทั้งหมด</a>
-                        </div>
+@if($hasAlerts)
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card border-danger shadow-sm h-100">
+                <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="card-title mb-0">สินค้าสต็อกต่ำ</h3>
+                        <small class="d-block text-white-50">แสดงเฉพาะสินค้าที่ต่ำกว่าจุดสั่งซื้อซ้ำ</small>
                     </div>
-                    <div class="tab-pane fade" id="expiring-pane" role="tabpanel" aria-labelledby="expiring-tab" data-alert-type="expiring" data-payload-hash="{{ $expiring['payload_hash'] }}" data-alert-days="{{ $expiring['days'] ?? 0 }}">
-                        @if(!empty($expiring['items']))
-                            <ul class="list-group list-group-flush">
-                                @foreach($expiring['items'] as $item)
-                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <strong>{{ $item['sku'] }}</strong>
-                                            <div class="small text-muted">{{ $item['name'] }} @if(!empty($item['sub_sku']))<span class="text-secondary">(ล็อต {{ $item['sub_sku'] }})</span>@endif</div>
-                                        </div>
-                                        <div class="text-right">
-                                            <div class="font-weight-bold">{{ $item['expire_date'] ? \Carbon\Carbon::parse($item['expire_date'])->format('d/m/Y') : '-' }}</div>
-                                            <span class="badge badge-warning badge-pill">{{ $item['qty'] }} ชิ้น</span>
-                                        </div>
-                                    </li>
-                                @endforeach
-                            </ul>
-                        @else
-                            <div class="text-center text-muted py-4">ยังไม่มีล็อตที่ใกล้หมดอายุ</div>
-                        @endif
-                        <div class="mt-3 text-right">
-                            <a href="{{ route('admin.reports.expiring-batches') }}" class="btn btn-link">ดูทั้งหมด</a>
+                    <span class="badge badge-light text-danger">{{ number_format($lowStock['count'] ?? 0) }} รายการ</span>
+                </div>
+                <div class="card-body p-0">
+                    @if(!empty($lowStock['items']))
+                        <div class="list-group list-group-flush">
+                            @foreach($lowStock['items'] as $item)
+                                <div class="list-group-item d-flex flex-column flex-md-row justify-content-between align-items-md-center">
+                                    <div class="mb-2 mb-md-0">
+                                        <div class="font-weight-bold">{{ $item['sku'] }}</div>
+                                        <div class="text-muted">{{ $item['name'] }}</div>
+                                    </div>
+                                    <div class="text-md-right">
+                                        <span class="badge badge-pill badge-danger">คงเหลือ {{ number_format($item['qty_total'] ?? 0) }}</span>
+                                        <div class="small text-muted">จุดสั่งซื้อซ้ำ {{ number_format($item['reorder_point'] ?? 0) }}</div>
+                                    </div>
+                                </div>
+                            @endforeach
                         </div>
-                    </div>
+                    @else
+                        <div class="p-4 text-center text-muted">ไม่มีสินค้าที่สต็อกต่ำในขณะนี้</div>
+                    @endif
+                </div>
+                <div class="card-footer bg-light text-right">
+                    <a href="{{ route('admin.reports.low-stock') }}" class="btn btn-sm btn-outline-danger">ดูรายงานสต็อกต่ำทั้งหมด</a>
                 </div>
             </div>
-            <div class="modal-footer d-flex justify-content-between">
-                <div class="text-muted">แจ้งเตือนนี้จะอยู่จนกว่าจะทำเครื่องหมายว่าอ่านแล้วหรือกดงดเตือน</div>
-                <div>
-                    <button type="button" class="btn btn-outline-secondary mr-2" data-alert-action="snooze">งดเตือนชั่วคราว (ถึงพรุ่งนี้)</button>
-                    <button type="button" class="btn btn-primary" data-alert-action="mark-read">ทำเครื่องหมายว่าอ่านแล้ว</button>
+        </div>
+        <div class="col-lg-6 mb-4">
+            <div class="card border-warning shadow-sm h-100">
+                <div class="card-header bg-warning d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="card-title mb-0 text-dark">ล็อตใกล้หมดอายุ / หมดอายุ</h3>
+                        <small class="d-block text-dark">ภายใน {{ number_format($expiring['days'] ?? 0) }} วันข้างหน้า</small>
+                    </div>
+                    <span class="badge badge-dark">{{ number_format($expiring['count'] ?? 0) }} ล็อต</span>
+                </div>
+                <div class="card-body p-0">
+                    @if(!empty($expiring['items']))
+                        <div class="list-group list-group-flush">
+                            @foreach($expiring['items'] as $item)
+                                @php
+                                    $expireDate = isset($item['expire_date']) && $item['expire_date'] !== null
+                                        ? Carbon::parse($item['expire_date'])->startOfDay()
+                                        : null;
+                                    $isExpired = $expireDate !== null && $expireDate->lt($today);
+                                    $badgeClass = $isExpired ? 'badge-danger' : 'badge-warning';
+                                    $badgeLabel = $isExpired ? 'หมดอายุแล้ว' : 'ใกล้หมดอายุ';
+                                @endphp
+                                <div class="list-group-item d-flex flex-column flex-md-row justify-content-between align-items-md-center">
+                                    <div class="mb-2 mb-md-0">
+                                        <div class="font-weight-bold">{{ $item['sku'] }} <span class="text-secondary">(LOT {{ $item['lot_no'] ?? $item['sub_sku'] ?? '-' }})</span></div>
+                                        <div class="text-muted">{{ $item['name'] }}</div>
+                                    </div>
+                                    <div class="text-md-right">
+                                        <span class="badge {{ $badgeClass }} badge-pill">{{ $badgeLabel }}</span>
+                                        <div class="small text-muted">
+                                            @if($expireDate)
+                                                หมดอายุ {{ $expireDate->locale('th')->translatedFormat('d M Y') }}
+                                            @else
+                                                ไม่ระบุวันหมดอายุ
+                                            @endif
+                                        </div>
+                                        <div class="small text-muted">คงเหลือ {{ number_format($item['qty'] ?? 0) }} ชิ้น</div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="p-4 text-center text-muted">ยังไม่มีล็อตที่ใกล้หมดอายุ</div>
+                    @endif
+                </div>
+                <div class="card-footer bg-light text-right">
+                    <a href="{{ route('admin.reports.expiring-batches') }}" class="btn btn-sm btn-outline-warning">ดูรายงานล็อตครบกำหนดทั้งหมด</a>
                 </div>
             </div>
         </div>
     </div>
-</div>
-
-@push('scripts')
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        $('#dashboardAlertModal').modal('show');
-
-        const modal = document.getElementById('dashboardAlertModal');
-        const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
-        const csrfToken = csrfTokenMeta ? csrfTokenMeta.getAttribute('content') : '';
-
-        modal.querySelectorAll('[data-alert-action]').forEach(function (button) {
-            button.addEventListener('click', function () {
-                const action = this.getAttribute('data-alert-action');
-                const activePane = modal.querySelector('.tab-pane.active');
-                const alertType = activePane.getAttribute('data-alert-type');
-                const payloadHash = activePane.getAttribute('data-payload-hash');
-
-                if (!payloadHash) {
-                    return;
-                }
-
-                fetch(action === 'mark-read' ? '{{ route('admin.alerts.mark-read') }}' : '{{ route('admin.alerts.snooze') }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken,
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        type: alertType,
-                        payload_hash: payloadHash,
-                    }),
-                }).then(function (response) {
-                    if (response.ok) {
-                        $('#dashboardAlertModal').modal('hide');
-                        window.location.reload();
-                    }
-                });
-            });
-        });
-    });
-</script>
-@endpush
+@endif

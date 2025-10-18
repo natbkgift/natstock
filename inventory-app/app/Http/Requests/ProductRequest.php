@@ -38,6 +38,18 @@ class ProductRequest extends FormRequest
         if (filled($this->input('new_category_name'))) {
             $this->merge(['category_id' => null]);
         }
+
+        $expireInDays = $this->input('expire_in_days');
+        if ($expireInDays !== null) {
+            $expireInDays = trim((string) $expireInDays);
+            $this->merge(['expire_in_days' => $expireInDays === '' ? null : (int) $expireInDays]);
+        }
+
+        $initialQty = $this->input('initial_qty');
+        if ($initialQty !== null) {
+            $initialQty = trim((string) $initialQty);
+            $this->merge(['initial_qty' => $initialQty === '' ? null : (int) $initialQty]);
+        }
     }
 
     public function rules(): array
@@ -70,8 +82,10 @@ class ProductRequest extends FormRequest
             'category_id' => ['nullable', 'exists:categories,id'],
             'new_category_name' => ['nullable', 'string', 'max:120'],
             'expire_date' => ['nullable', 'date_format:Y-m-d'],
+            'expire_in_days' => ['nullable', 'integer', 'min:1'],
             'reorder_point' => ['integer', 'min:0'],
             'qty' => ['integer', 'min:0'],
+            'initial_qty' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['boolean'],
             'note' => ['nullable', 'string'],
         ];
@@ -103,12 +117,28 @@ class ProductRequest extends FormRequest
             'sale_price.numeric' => 'ราคาขายต้องเป็นตัวเลข',
             'sale_price.min' => 'ราคาขายต้องมากกว่าหรือเท่ากับ 0',
             'expire_date.date_format' => 'วันหมดอายุต้องอยู่ในรูปแบบ YYYY-MM-DD',
+            'expire_in_days.integer' => 'จำนวนวันหมดอายุต้องเป็นจำนวนเต็ม',
+            'expire_in_days.min' => 'จำนวนวันหมดอายุต้องมากกว่าหรือเท่ากับ 1',
             'reorder_point.integer' => 'จุดสั่งซื้อซ้ำต้องเป็นจำนวนเต็ม',
             'reorder_point.min' => 'จุดสั่งซื้อซ้ำต้องมากกว่าหรือเท่ากับ 0',
             'qty.integer' => 'ปริมาณคงเหลือต้องเป็นจำนวนเต็ม',
             'qty.min' => 'ปริมาณคงเหลือต้องมากกว่าหรือเท่ากับ 0',
+            'initial_qty.integer' => 'จำนวนเริ่มต้นต้องเป็นจำนวนเต็ม',
+            'initial_qty.min' => 'จำนวนเริ่มต้นต้องมากกว่าหรือเท่ากับ 0',
             'is_active.boolean' => 'สถานะการใช้งานต้องเป็นค่าใช่/ไม่ใช่',
             'note.string' => 'หมายเหตุต้องเป็นข้อความ',
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            $expireDate = $this->input('expire_date');
+            $expireInDays = $this->input('expire_in_days');
+
+            if (blank($expireDate) && blank($expireInDays)) {
+                $validator->errors()->add('expire_date', 'กรุณาระบุวันหมดอายุหรือจำนวนวันหมดอายุ');
+            }
+        });
     }
 }
