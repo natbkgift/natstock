@@ -39,7 +39,12 @@
         ]
     },
     "scripts": {
-        "test": "pest"
+        "test": "@php vendor/bin/pest",
+        "post-deploy-hostinger": [
+            "@php artisan down || true",
+            "bash ../deploy/hostinger/post-deploy.sh",
+            "@php artisan up"
+        ]
     },
     "extra": {
         "laravel": {
