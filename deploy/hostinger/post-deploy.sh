@@ -23,7 +23,12 @@ echo "[INFO] เริ่ม deploy script ที่ ${TIMESTAMP}" | tee -a "${L
     composer install --no-dev --prefer-dist --optimize-autoloader
 
     echo "[STEP] php artisan key:generate --force (สร้างกุญแจถ้ายังไม่มี)"
+if grep -q "^APP_KEY=base64:" .env; then
+    echo "[INFO] APP_KEY already set. Skipping generation."
+else
+    echo "[STEP] php artisan key:generate --force (Key not found or invalid)"
     php artisan key:generate --force
+fi
 
     echo "[STEP] php artisan migrate --force"
     php artisan migrate --force
