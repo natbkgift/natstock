@@ -13,15 +13,44 @@ use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\ImportExportController;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return redirect()->route('login');
 });
-    // Lightweight health endpoint (does not require auth)
-    Route::get('/ping', function () {
-        return response()->json(['ok' => true, 'time' => now()->toIso8601String()]);
-    });
+
+// Lightweight health endpoint (does not require auth)
+Route::get('/ping', function () {
+    return response()->json(['ok' => true, 'time' => now()->toIso8601String()]);
+});
+
+Route::get('/healthz', function () {
+    $dbHealthy = true;
+    try {
+        DB::connection()->getPdo();
+    } catch (\Throwable $e) {
+        $dbHealthy = false;
+    }
+
+    $cacheHealthy = true;
+    try {
+        $key = 'healthz_' . uniqid('', true);
+        Cache::put($key, 'ok', 10);
+        $cacheHealthy = Cache::pull($key) === 'ok';
+    } catch (\Throwable $e) {
+        $cacheHealthy = false;
+    }
+
+    return response()->json([
+        'ok' => $dbHealthy && $cacheHealthy,
+        'env' => app()->environment(),
+        'db' => $dbHealthy,
+        'cache' => $cacheHealthy,
+        'time' => now()->toDateTimeString(),
+    ]);
+})->name('healthz');
 
 Route::middleware(['web','auth'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('product-batches/expiring-view', [\App\Http\Controllers\Admin\ProductBatchController::class, 'expiringView'])->name('product-batches.expiring-view');
