@@ -76,6 +76,43 @@ Codespaces จะเปิดพอร์ต **8000** อัตโนมัต�
 - **สิทธิ์โฟลเดอร์:** `storage/`, `bootstrap/cache/`
 - **สำรองข้อมูล:** ตั้งอัตโนมัติรายวัน + เก็บ 7 ชุดล่าสุด + ทดสอบกู้คืนรายเดือน
 
+## Deploy บน Hostinger (hPanel Git)
+รายละเอียดฉบับเต็มอยู่ใน `deploy/hostinger/README_HOSTINGER_DEPLOY_TH.md` ส่วนนี้สรุปขั้นตอนหลัก:
+
+1. **โครงสร้างโฮส**
+   - ตั้งค่า Git Deployment ให้โคลนโค้ดไปที่ `/home/<USER>/natstock_app`
+   - Document root (`~/domains/natstock.net/public_html`) มีเฉพาะไฟล์จาก `deploy/hostinger/public_html/` ซึ่งจะชี้เข้าสู่ `~/natstock_app/inventory-app/public`
+2. **ตั้งค่า hPanel ▸ Advanced ▸ Git**
+   - Repository: `https://github.com/natbkgift/natstock.git`
+   - Branch: `main` หรือ `prod`
+   - Deployment path: `/home/<USER>/natstock_app`
+   - กด **Deploy** เพื่อ clone หรืออัปเดตรุ่นล่าสุด
+3. **ขั้นตอน Manual หลัง deploy ครั้งแรก**
+   - คัดลอกไฟล์ `deploy/hostinger/public_html/.htaccess` และ `index.php` ไปไว้ใน `~/domains/natstock.net/public_html/`
+   - สร้างไฟล์ `.env` จาก `~/natstock_app/inventory-app/.env.production.example` แล้วกรอกค่าจริง (ห้ามคอมมิต)
+   - SSH แล้วรัน `bash ~/natstock_app/deploy/hostinger/post-deploy.sh`
+   - ตรวจสุขภาพระบบผ่าน `https://www.natstock.net/healthz`
+4. **สคริปต์ Post-deploy**
+   - สคริปต์ `deploy/hostinger/post-deploy.sh` รัน composer install, migrate, cache, storage:link และตั้ง permission โดยมี log ที่ `storage/logs/deploy_*.log`
+   - สามารถใช้ `composer post-deploy-hostinger` แทนได้ (เฉพาะบนโฮสจริงเท่านั้น)
+5. **ตั้ง Cron/Queue**
+   ```cron
+   * * * * * php /home/<USER>/natstock_app/inventory-app/artisan schedule:run >> /home/<USER>/logs/schedule.log 2>&1
+   * * * * * php /home/<USER>/natstock_app/inventory-app/artisan queue:work --stop-when-empty >> /home/<USER>/logs/queue.log 2>&1
+   ```
+6. **Health Check & SSL**
+   - ใช้ Route `/healthz` ที่ bundle มากับแอป เพื่อตรวจ env/db/cache
+   - `.htaccess` บังคับ HTTPS (ต้องเปิด SSL ใน hPanel ให้เรียบร้อย)
+7. **Rollback**
+   - ใน hPanel เลือก commit/branch ที่ต้องการแล้วกด Deploy อีกครั้ง
+   - หากต้องย้อน database ให้ใช้ `php artisan migrate:rollback --force` โดยสำรองข้อมูลก่อน
+8. **Pre-deploy Checklist ก่อนกด Deploy**
+   - ✅ DNS/SSL ของ `natstock.net` พร้อมใช้งาน
+   - ✅ ตั้งค่า `.env` ที่ `~/natstock_app/inventory-app` ครบทุกค่า (ไม่มีการคอมมิต)
+   - ✅ ตรวจ `php -v` และ extension ให้ตรงกับ Laravel 11 (PHP ≥ 8.2 พร้อม ext พื้นฐาน)
+   - ✅ โฟลเดอร์ `storage/` และ `bootstrap/cache/` เขียนได้
+   - ✅ หลัง Deploy รัน `bash ~/natstock_app/deploy/hostinger/post-deploy.sh` หรือ `composer post-deploy-hostinger`
+
 ---
 
 ## การรันชุดทดสอบ (ท้องถิ่น/CI)
@@ -83,6 +120,7 @@ Codespaces จะเปิดพอร์ต **8000** อัตโนมัต�
 2. เตรียม `.env` (เช่น `cp -n .env.example .env`) แล้วตั้งค่า database สำหรับรันเทสต์ (นิยมใช้ sqlite memory)
 3. รัน `php artisan key:generate` และ `php artisan migrate --force`
 4. สั่ง `php artisan test`
+   - หรือใช้ `composer test` (ต้องรัน `composer install` ให้เรียบร้อยก่อนเพื่อดึง Pest CLI)
 
 > หากข้ามขั้นตอน `composer install` จะทำให้คำสั่งเทสต์ล้มเหลวเพราะหา `vendor/autoload.php` ไม่เจอ
 

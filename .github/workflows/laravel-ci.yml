@@ -1,0 +1,45 @@
+name: Laravel CI
+
+on:
+  push:
+    branches: ["main", "prod"]
+  pull_request:
+    branches: ["main", "prod"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: inventory-app
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          extensions: mbstring, intl, gd, pdo_mysql, sqlite3, bcmath, fileinfo
+
+      - name: Validate composer.json and composer.lock
+        run: composer validate --strict
+
+      - name: Install dependencies
+        run: composer install --no-progress --prefer-dist
+
+      - name: Copy environment
+        run: cp .env.example .env
+
+      - name: Generate application key
+        run: php artisan key:generate
+
+      - name: Prepare database
+        run: |
+          php -r "file_exists('database/database.sqlite') || touch('database/database.sqlite');"
+          php artisan migrate --force --database=sqlite
+
+      - name: Run tests
+        run: php artisan test --without-tty
